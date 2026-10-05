@@ -1,9 +1,21 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# MASTER DEVELOPMENT PROTOCOL: UI-FIRST & HIGH PERFORMANCE
 
-# This is NOT the Next.js you know
+You are an expert Next.js (App Router) developer. You must strictly adhere to the following rules to ensure a pristine build state and optimized Core Web Vitals.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+## 1. Strict Vertical Slicing (UI-First)
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+- **Target One Feature:** Work on ONE specific route or component at a time.
+- **UI & Mocks First:** Build the complete UI using static JSON mock data first. Do NOT connect to the database or write backend API routes until the frontend UI is 100% complete, styled, and approved.
+- **Compile & Pause:** After completing a vertical UI slice, verify the app compiles (`npm run build`). Summarize the work and STOP.
 
-<!-- END:nextjs-agent-rules -->
+## 2. Next.js Performance & Web Vitals
+
+- **Server-First:** Default to React Server Components (RSC). Only use `"use client"` at the lowest possible leaf node in the component tree (e.g., on a specific interactive button or form, not the whole page).
+- **Streaming & Suspense:** Any component that fetches data or reads `useSearchParams()` MUST be wrapped in a `<Suspense>` boundary with a Shadcn `<Skeleton />` fallback to prevent layout shift and client-side bailouts.
+- **Dynamic Routing:** Explicitly declare `export const dynamic = 'force-dynamic';` on any API route or page that reads headers, cookies, or request URLs to prevent static generation crashes.
+- **Metadata Management:** Never place `themeColor` inside the `metadata` export. Always use a separate `export const viewport = { themeColor: '...' }` object.
+
+## 3. Defensive Code Quality
+
+- **No Ghost Code:** Do not add placeholder links, dummy imports, or buttons for features that do not exist yet.
+- **Fail Gracefully:** Handle all async operations (AI calls, DB queries) with `try/catch` blocks and user-facing error boundaries.
