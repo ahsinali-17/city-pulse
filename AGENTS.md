@@ -19,3 +19,8 @@ You are an expert Next.js (App Router) developer. You must strictly adhere to th
 
 - **No Ghost Code:** Do not add placeholder links, dummy imports, or buttons for features that do not exist yet.
 - **Fail Gracefully:** Handle all async operations (AI calls, DB queries) with `try/catch` blocks and user-facing error boundaries.
+
+## 4. Procedural Rules
+
+- Before you write any code that relies on external services (like Neon databases, NextAuth, or Gemini API) or requires CLI package installations (like Shadcn UI), you MUST stop and ask me to set them up or run the commands.
+- I have already set up the base Next.js app. To execute Slice 1, tell me exactly which Shadcn UI CLI commands to run to initialize the design system. Wait for my confirmation that they are installed, and then build our global layout.tsx, Sidebar, and Header components using the civic theme.
