@@ -40,3 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 CityPulse_Architecture_and_Plan.md
+PROGRESS.md
