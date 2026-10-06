@@ -17,6 +17,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import LogoutButton from "./logout";
 
 interface NavGroup {
   label: string;
@@ -89,7 +90,7 @@ export function Sidebar({ className }: { className?: string }) {
       </div>
 
       {/* Nav Content */}
-      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin">
+      <div className="w-full flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin relative overflow-x-hidden">
         {navGroups.map((group, idx) => (
           <div key={idx} className="space-y-1.5">
             <p className="px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -141,6 +142,8 @@ export function Sidebar({ className }: { className?: string }) {
             </nav>
           </div>
         ))}
+        
+        <LogoutButton/>
       </div>
 
       {/* Footer System Status */}

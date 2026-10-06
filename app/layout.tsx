@@ -4,6 +4,7 @@ import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
+import { SessionProvider } from "next-auth/react";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -32,6 +33,7 @@ export default function RootLayout({
   return (
     <html data-scroll-behavior="smooth" lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans">
+        <SessionProvider>
         <TooltipProvider>
           <div className="flex h-screen overflow-hidden">
             {/* Desktop Sidebar */}
@@ -46,6 +48,7 @@ export default function RootLayout({
             </div>
           </div>
         </TooltipProvider>
+        </SessionProvider>
       </body>
     </html>
   );
