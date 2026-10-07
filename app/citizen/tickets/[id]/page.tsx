@@ -18,7 +18,11 @@ import {
   ExternalLink,
   ChevronRight,
 } from "lucide-react";
-import { MOCK_TICKETS, MockTicket } from "@/lib/mock-data";
+import { db } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import { tickets } from "@/lib/db/schema/tickets";
+import { users } from "@/lib/db/schema/users";
+import { departments } from "@/lib/db/schema/departments";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +36,7 @@ interface TicketPageProps {
 
 export const dynamic = "force-dynamic";
 
-function getTicketProgress(status: MockTicket["status"]) {
+function getTicketProgress(status: string) {
   switch (status) {
     case "REPORTED":
       return 20;
@@ -65,7 +69,26 @@ function TicketDetailSkeleton() {
 export default async function CitizenTicketPage({ params }: TicketPageProps) {
   const resolvedParams = await params;
   const ticketId = resolvedParams.id;
-  const ticket = MOCK_TICKETS[ticketId] || MOCK_TICKETS["demo-123"];
+  
+  const [ticket] = await db
+    .select({
+      id: tickets.id,
+      title: tickets.title,
+      category: tickets.category,
+      description: tickets.description,
+      status: tickets.status,
+      createdAt: tickets.createdAt,
+      imageUrl: tickets.imageUrl,
+      address: tickets.address,
+      aiAnalysis: tickets.aiAnalysis,
+      timeline: tickets.timeline,
+      assignedDepartment: departments.name,
+      assignedCrew: users.name,
+    })
+    .from(tickets)
+    .leftJoin(departments, eq(tickets.departmentId, departments.id))
+    .leftJoin(users, eq(tickets.assignedCrewId, users.id))
+    .where(eq(tickets.id, ticketId));
 
   if (!ticket) {
     notFound();
@@ -166,7 +189,7 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
                     </div>
                   </div>
                   <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 font-mono text-xs">
-                    {ticket.aiAnalysis.confidenceScore}% Vision Confidence
+                    {ticket.aiAnalysis?.confidenceScore || 0}% Vision Confidence
                   </Badge>
                 </div>
               </CardHeader>
@@ -175,16 +198,16 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 space-y-1">
                     <span className="text-[11px] text-muted-foreground uppercase font-mono font-medium">Detected Hazard Category</span>
-                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{ticket.aiAnalysis.detectedCategory}</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{ticket.aiAnalysis?.detectedCategory || "Pending Analysis"}</p>
                   </div>
 
                   <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 space-y-1">
                     <span className="text-[11px] text-muted-foreground uppercase font-mono font-medium">Severity Score & Level</span>
                     <div className="flex items-center gap-2">
                       <Badge className="bg-red-600 text-white font-mono font-bold text-xs px-2">
-                        Severity {ticket.aiAnalysis.severityScore} / 5
+                        Severity {ticket.aiAnalysis?.severityScore || "N/A"} / 5
                       </Badge>
-                      <span className="text-xs font-semibold text-red-600 dark:text-red-400">({ticket.aiAnalysis.severityLabel} Priority)</span>
+                      <span className="text-xs font-semibold text-red-600 dark:text-red-400">({ticket.aiAnalysis?.severityLabel || "Unknown"} Priority)</span>
                     </div>
                   </div>
                 </div>
@@ -192,7 +215,7 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
                 <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 space-y-1 text-xs">
                   <span className="text-[11px] text-muted-foreground uppercase font-mono font-medium">AI Rationale & Visual Evidence</span>
                   <p className="text-slate-700 dark:text-slate-300 leading-relaxed mt-1">
-                    &quot;{ticket.aiAnalysis.explanation}&quot;
+                    &quot;{ticket.aiAnalysis?.explanation || "Awaiting Gemini Vision AI assessment..."}&quot;
                   </p>
                 </div>
 
@@ -222,7 +245,7 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
                   {/* Continuous Vertical Timeline Thread Line */}
                   <div className="absolute left-3.5 top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-800" />
 
-                  {ticket.timeline.map((item, index) => (
+                  {ticket.timeline && Array.isArray(ticket.timeline) ? ticket.timeline.map((item: any, index: number) => (
                     <div key={index} className="relative flex items-start gap-3.5 group">
                       {/* Circle Node Icon centered over the thread line */}
                       <div className="relative z-10 size-7.5 rounded-full bg-white dark:bg-slate-900 border-2 border-blue-600 flex items-center justify-center text-blue-600 text-xs shrink-0 shadow-xs">
@@ -246,7 +269,9 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
                         <span className="text-[10px] font-mono text-slate-400 block pt-0.5">Logged by: {item.author}</span>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="text-sm text-slate-500 italic pl-8">No timeline events recorded yet.</div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -263,8 +288,8 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
                 <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 aspect-video">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={ticket.imageUrl}
-                    alt={ticket.title}
+                    src={ticket?.imageUrl ?? ""}
+                    alt={ticket.title ?? ""}  
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded font-mono backdrop-blur-xs">

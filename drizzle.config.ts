@@ -7,7 +7,7 @@ dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
 export default {
-  schema: "./lib/db/schema.ts",
+  schema: "./lib/db/schema/*",
   out: "./lib/db/migrations",
   dialect: "postgresql",
   dbCredentials: {

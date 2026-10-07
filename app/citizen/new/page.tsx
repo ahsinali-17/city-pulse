@@ -94,7 +94,7 @@ export default function SubmitHazardPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setTimeout(() => {
-      router.push("/citizen/tickets/demo-123");
+      router.push("/citizen/tickets");
     }, 1500);
   };
 

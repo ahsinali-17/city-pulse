@@ -34,7 +34,7 @@ const navGroups: NavGroup[] = [
     label: "Citizen Services",
     items: [
       { title: "Report Hazard", href: "/citizen/new", icon: PlusCircle, badge: "AI Vision" },
-      { title: "My Submissions", href: "/citizen/tickets/demo-123", icon: Ticket },
+      { title: "My Submissions", href: "/citizen/tickets", icon: Ticket },
     ],
   },
   {

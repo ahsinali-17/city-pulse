@@ -31,7 +31,7 @@ export default function Home() {
       btnClass: "bg-blue-600 hover:bg-blue-700 text-white",
       links: [
         { label: "Report New Hazard", href: "/citizen/new", icon: PlusCircle },
-        { label: "Track Ticket Status", href: "/citizen/tickets/demo-123", icon: Ticket },
+        { label: "Track Ticket Status", href: "/citizen/tickets", icon: Ticket },
       ] as Array<{ label: string; href: string; icon: React.ElementType; badge?: string }>,
     },
     {

@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users } from "@/lib/db/schema/users";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
