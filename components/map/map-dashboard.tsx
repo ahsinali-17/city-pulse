@@ -11,7 +11,6 @@ import {
   Radio,
   Users,
 } from "lucide-react";
-import { MOCK_MAP_INCIDENTS } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,34 +37,34 @@ const SEVERITY_LABELS: Record<number, string> = {
   1: "Minor",
 };
 
-export default function MapDashboard() {
+export default function MapDashboard({ incidents = [] }: { incidents?: any[] }) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
 
   const filteredIncidents = useMemo(() => {
-    return MOCK_MAP_INCIDENTS.filter((inc) => {
+    return incidents.filter((inc) => {
       if (categoryFilter !== "all" && inc.category !== categoryFilter) return false;
       if (severityFilter !== "all" && inc.severity !== Number(severityFilter)) return false;
       return true;
     });
-  }, [categoryFilter, severityFilter]);
+  }, [categoryFilter, severityFilter, incidents]);
 
   const stats = useMemo(() => {
     const bySeverity: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     const byCategory: Record<string, number> = {};
 
-    MOCK_MAP_INCIDENTS.forEach((inc) => {
+    incidents.forEach((inc) => {
       bySeverity[inc.severity]++;
       byCategory[inc.category] = (byCategory[inc.category] || 0) + 1;
     });
 
     return {
-      total: MOCK_MAP_INCIDENTS.length,
+      total: incidents.length,
       filtered: filteredIncidents.length,
       bySeverity,
       byCategory,
       activeCrews: new Set(
-        MOCK_MAP_INCIDENTS.filter((i) => i.assignedCrew).map((i) => i.assignedCrew)
+        incidents.filter((i) => i.assignedCrew).map((i) => i.assignedCrew)
       ).size,
     };
   }, [filteredIncidents]);

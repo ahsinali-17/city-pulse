@@ -1,32 +1,39 @@
-"use client";
+import { db } from "@/lib/db";
+import { tickets } from "@/lib/db/schema/tickets";
+import { departments } from "@/lib/db/schema/departments";
+import { users } from "@/lib/db/schema/users";
+import { eq } from "drizzle-orm";
+import { MapDashboardWrapper } from "@/components/map/map-dashboard-wrapper";
 
-import dynamic from "next/dynamic";
-import { Skeleton } from "@/components/ui/skeleton";
+export default async function GISMapPage() {
+   const data = await db
+    .select({
+      ticket: tickets,
+      department: departments,
+      crew: users,
+    })
+    .from(tickets)
+    .leftJoin(departments, eq(tickets.departmentId, departments.id))
+    .leftJoin(users, eq(tickets.assignedCrewId, users.id));
 
-function MapSkeleton() {
-  return (
-    <div className="flex flex-col h-[calc(100vh-7.5rem)] space-y-3">
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-6 w-32" />
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-8 w-36" />
-        </div>
-      </div>
-      <Skeleton className="flex-1 rounded-xl" />
-    </div>
-  );
-}
-
-const MapDashboard = dynamic(() => import("@/components/map-dashboard"), {
-  ssr: false,
-  loading: () => <MapSkeleton />,
-});
-
-export default function GISMapPage() {
+  // Map to the format the MapDashboard expects
+  const mappedIncidents = data.map(({ ticket, department, crew }) => {
+    return {
+      id: ticket.id,
+      title: ticket.title,
+      category: ticket.category,
+      severity: ticket.severity,
+      status: ticket.status,
+      coordinates: { lat: ticket.lat, lng: ticket.lng },
+      address: ticket.address,
+      reportedAt: ticket.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      assignedCrew: crew ? crew.name : undefined,
+      department: department ? department.name : "Unassigned",
+    };
+  });
   return (
     <div className="h-[calc(100vh-7.5rem)]">
-      <MapDashboard />
-    </div>
+      <MapDashboardWrapper incidents={mappedIncidents} /> 
+    </div>  
   );
 }
