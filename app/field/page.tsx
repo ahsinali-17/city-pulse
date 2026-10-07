@@ -8,14 +8,58 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { MOCK_FIELD_TASKS } from "@/lib/mock-data";
-import { FieldTaskList } from "@/components/field-task-list";
+import { FieldTaskList } from "@/components/field-task/field-task-list";
+import { db } from "@/lib/db";
+import { tickets } from "@/lib/db/schema/tickets";
+import { eq, inArray } from "drizzle-orm";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { type FieldTask } from "@/lib/mock-data";
 
-export default function FieldWorkerPage() {
-  const urgentCount = MOCK_FIELD_TASKS.filter(
+export const dynamic = "force-dynamic";
+
+export default async function FieldWorkerPage() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  // Fetch tickets assigned to this crew member
+  const assignedTickets = await db
+    .select()
+    .from(tickets)
+    .where(
+      eq(tickets.assignedCrewId, session.user.id)
+    );
+
+  const dbTasks = assignedTickets
+    .filter(t => t.assignedCrewId === session.user.id || session.user.role !== "FIELD_WORKER") // fallback for demo
+    .map((t) => {
+      // Map valid status values to FieldTask statuses
+      let mappedStatus: FieldTask["status"] = t.status === "RESOLVED" ? "COMPLETED" : t.status === "DISPATCHED" ? "ASSIGNED" : t.status as FieldTask["status"]
+
+      return {
+        id: t.id,
+        title: t.title,
+        category: t.category,
+        severity: t.severity as 1 | 2 | 3 | 4 | 5,
+        status: mappedStatus,
+        address: t.address,
+        coordinates: { lat: t.lat, lng: t.lng },
+        estimatedMinutes: t.aiAnalysis?.estimatedMinutes || 60,
+        reportedAt: new Date(t.createdAt).toLocaleDateString(),
+        partsNeeded: t.partsNeeded || [],
+        partsUsed: t.partsUsed || [],
+        notes: t.notes || t.description || "No specific instructions provided.",
+        priority: (t.priority || "NORMAL") as "URGENT" | "HIGH" | "NORMAL" | "LOW",
+        imageUrl: t.imageUrl || "",
+      } satisfies FieldTask;
+  });
+
+  const urgentCount = dbTasks.filter(
     (t) => t.priority === "URGENT"
   ).length;
-  const totalParts = MOCK_FIELD_TASKS.reduce(
+  const totalParts = dbTasks.reduce(
     (sum, t) => sum + t.partsNeeded.length,
     0
   );
@@ -77,7 +121,7 @@ export default function FieldWorkerPage() {
               Assigned
             </p>
             <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 font-mono mt-0.5">
-              {MOCK_FIELD_TASKS.length}
+              {dbTasks.length}
             </h3>
           </CardContent>
         </Card>
@@ -104,7 +148,7 @@ export default function FieldWorkerPage() {
       </div>
 
       {/* Interactive Task List (Client Component) */}
-      <FieldTaskList tasks={MOCK_FIELD_TASKS} />
+      <FieldTaskList tasks={dbTasks} />
     </div>
   );
 }
