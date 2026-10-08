@@ -6,14 +6,16 @@ import { type FieldTask } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateTicketState } from "@/app/field/actions";
+import { queueOfflineUpdate } from "@/lib/db/offline";
 
 interface FieldTaskPartsProps {
   task: FieldTask;
   isPending: boolean;
   startTransition: React.TransitionStartFunction;
+  isOnline?: boolean;
 }
 
-export function FieldTaskParts({ task, isPending, startTransition }: FieldTaskPartsProps) {
+export function FieldTaskParts({ task, isPending, startTransition, isOnline = true }: FieldTaskPartsProps) {
   const [newPartInput, setNewPartInput] = useState("");
   const isCompleted = task.status === "COMPLETED";
 
@@ -23,8 +25,12 @@ export function FieldTaskParts({ task, isPending, startTransition }: FieldTaskPa
       ? task.partsUsed.filter(p => p !== part) 
       : [...task.partsUsed, part];
       
-    startTransition(() => {
-      updateTicketState(task.id, task.status, task.partsNeeded, nextPartsUsed);
+    startTransition(async () => {
+      if (isOnline) {
+        await updateTicketState(task.id, task.status, task.partsNeeded, nextPartsUsed);
+      } else {
+        await queueOfflineUpdate(task.id, task.status, task.partsNeeded, nextPartsUsed);
+      }
     });
   };
 
@@ -40,8 +46,12 @@ export function FieldTaskParts({ task, isPending, startTransition }: FieldTaskPa
     const nextPartsUsed = [...task.partsUsed, input];
     
     setNewPartInput("");
-    startTransition(() => {
-      updateTicketState(task.id, task.status, nextPartsNeeded, nextPartsUsed);
+    startTransition(async () => {
+      if (isOnline) {
+        await updateTicketState(task.id, task.status, nextPartsNeeded, nextPartsUsed);
+      } else {
+        await queueOfflineUpdate(task.id, task.status, nextPartsNeeded, nextPartsUsed);
+      }
     });
   };
 

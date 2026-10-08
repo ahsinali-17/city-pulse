@@ -19,6 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CityPulse Triage | Smart Infrastructure Hub",
   description: "Offline-first civic hazard reporting and AI-powered triage platform for municipal services.",
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {

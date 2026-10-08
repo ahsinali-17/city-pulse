@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { updateTicketState } from "@/app/field/actions";
+import { queueOfflineUpdate } from "@/lib/db/offline";
 import { FieldTaskParts } from "./field-task-parts";
 
 const PRIORITY_STYLES: Record<string, string> = {
@@ -63,9 +64,10 @@ function getStatusProgress(status: string): number {
 
 interface FieldTaskCardProps {
   task: FieldTask;
+  isOnline?: boolean;
 }
 
-export function FieldTaskCard({ task }: FieldTaskCardProps) {
+export function FieldTaskCard({ task, isOnline = true }: FieldTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -77,8 +79,12 @@ export function FieldTaskCard({ task }: FieldTaskCardProps) {
   const advanceStatus = () => {
     const nextStatus = STATUS_FLOW[status];
     if (nextStatus) {
-      startTransition(() => {
-        updateTicketState(task.id, nextStatus, task.partsNeeded, task.partsUsed);
+      startTransition(async () => {
+        if (isOnline) {
+          await updateTicketState(task.id, nextStatus, task.partsNeeded, task.partsUsed);
+        } else {
+          await queueOfflineUpdate(task.id, nextStatus, task.partsNeeded, task.partsUsed);
+        }
       });
     }
   };
@@ -169,7 +175,7 @@ export function FieldTaskCard({ task }: FieldTaskCardProps) {
         {isExpanded && (
           <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
             {/* Parts Inventory Component */}
-            <FieldTaskParts task={task} isPending={isPending} startTransition={startTransition} />
+            <FieldTaskParts task={task} isPending={isPending} startTransition={startTransition} isOnline={isOnline} />
 
             {/* Dispatch Notes */}
             <div>

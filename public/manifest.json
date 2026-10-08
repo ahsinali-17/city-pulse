@@ -1,0 +1,21 @@
+{
+  "name": "CityPulse Triage - Smart Infrastructure Hub",
+  "short_name": "CityPulse",
+  "description": "Offline-first civic hazard reporting & AI triage app for municipal field crews.",
+  "start_url": "/field",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/placeholder-avatar.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/placeholder-avatar.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

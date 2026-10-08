@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldTaskList } from "@/components/field-task/field-task-list";
 import { db } from "@/lib/db";
 import { tickets } from "@/lib/db/schema/tickets";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { type FieldTask } from "@/lib/mock-data";
@@ -148,7 +148,7 @@ export default async function FieldWorkerPage() {
       </div>
 
       {/* Interactive Task List (Client Component) */}
-      <FieldTaskList tasks={dbTasks} />
+      <FieldTaskList initialTasks={dbTasks} />
     </div>
   );
 }
