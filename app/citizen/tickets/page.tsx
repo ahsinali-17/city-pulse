@@ -36,8 +36,8 @@ export default async function CitizenTicketsListPage() {
             Track the status of your reported municipal hazards.
           </p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-md gap-2">
-          <Link href="/citizen/new">
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-md">
+          <Link href="/citizen/new" className="flex items-center gap-2">
             <Plus className="size-4" />
             Report New Hazard
           </Link>

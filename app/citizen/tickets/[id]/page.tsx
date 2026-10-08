@@ -80,6 +80,8 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
       createdAt: tickets.createdAt,
       imageUrl: tickets.imageUrl,
       address: tickets.address,
+      severity: tickets.severity,
+      priority: tickets.priority,
       aiAnalysis: tickets.aiAnalysis,
       timeline: tickets.timeline,
       assignedDepartment: departments.name,
@@ -204,10 +206,12 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
                   <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 space-y-1">
                     <span className="text-[11px] text-muted-foreground uppercase font-mono font-medium">Severity Score & Level</span>
                     <div className="flex items-center gap-2">
-                      <Badge className="bg-red-600 text-white font-mono font-bold text-xs px-2">
-                        Severity {ticket.aiAnalysis?.severityScore || "N/A"} / 5
+                      <Badge className={`text-white font-mono font-bold text-xs px-2 ${ticket.severity >= 4 ? 'bg-red-600' : ticket.severity === 3 ? 'bg-orange-500' : 'bg-yellow-500'}`}>
+                        Severity {ticket.severity || "N/A"} / 5
                       </Badge>
-                      <span className="text-xs font-semibold text-red-600 dark:text-red-400">({ticket.aiAnalysis?.severityLabel || "Unknown"} Priority)</span>
+                      <span className={`text-xs font-semibold ${ticket.severity >= 4 ? 'text-red-600 dark:text-red-400' : ticket.severity === 3 ? 'text-orange-600 dark:text-orange-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                        ({ticket.priority || "Unknown"} Priority)
+                      </span>
                     </div>
                   </div>
                 </div>

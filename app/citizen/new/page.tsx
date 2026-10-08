@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { submitTicketAction } from "./actions";
 import {
   Camera,
   Upload,
@@ -60,6 +61,8 @@ export default function SubmitHazardPage() {
   const [aiScanned, setAiScanned] = useState<boolean>(true);
   const [category, setCategory] = useState<string>("Water Leak");
   const [title, setTitle] = useState<string>("High Pressure Water Main Burst on Elm St");
+  const [severity, setSeverity] = useState<number>(5);
+  const [confidence, setConfidence] = useState<number>(97.4);
   const [description, setDescription] = useState<string>(
     "Water gushing from asphalt near sewer grate, causing road erosion and flooding sidewalk."
   );
@@ -68,17 +71,46 @@ export default function SubmitHazardPage() {
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const handleSelectSample = (sample: typeof SAMPLE_PHOTOS[0]) => {
-    setSelectedPhoto(sample.url);
+  const runAiTriage = async (imageUrl: string = "", imageBase64: string = "") => {
     setIsScanning(true);
     setAiScanned(false);
-
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl, imageBase64 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCategory(data.category);
+        setTitle(data.title);
+        setSeverity(data.severity);
+        setConfidence(data.confidence);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
       setIsScanning(false);
       setAiScanned(true);
-      setCategory(sample.category);
-      setTitle(sample.title);
-    }, 1200);
+    }
+  };
+
+  const handleSelectSample = (sample: typeof SAMPLE_PHOTOS[0]) => {
+    setSelectedPhoto(sample.url);
+    runAiTriage(sample.url, "");
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      setSelectedPhoto(base64);
+      runAiTriage("",base64);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDetectGPS = () => {
@@ -90,12 +122,32 @@ export default function SubmitHazardPage() {
     }, 1000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTimeout(() => {
+    
+    // Parse coordinates loosely
+    const cleanCoords = coordinates.replace(/°/g, '').replace(/[N S W E]/gi, '');
+    const [latStr, lngStr] = cleanCoords.split(",");
+    const lat = parseFloat(latStr) || 0;
+    const lng = parseFloat(lngStr) || 0;
+
+    try {
+      await submitTicketAction({
+        title,
+        category,
+        description,
+        severity,
+        imageUrl: selectedPhoto,
+        address: location,
+        lat,
+        lng
+      });
       router.push("/citizen/tickets");
-    }, 1500);
+    } catch (err) {
+      console.error(err);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -164,7 +216,7 @@ export default function SubmitHazardPage() {
                       {!isScanning && aiScanned && (
                         <div className="absolute top-3 left-3 bg-slate-900/85 text-white backdrop-blur-md px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center gap-1.5 border border-blue-500/40 shadow-md">
                           <Sparkles className="size-3 text-blue-400" />
-                          <span>Gemini Vision: 5/5 Critical</span>
+                          <span>Gemini Vision: {severity}/5 {severity >= 4 ? "Critical" : "Hazard"}</span>
                         </div>
                       )}
 
@@ -177,17 +229,18 @@ export default function SubmitHazardPage() {
                       </button>
                     </>
                   ) : (
-                    <div className="text-center p-6 space-y-3">
+                    <label className="text-center p-6 space-y-3 cursor-pointer w-full h-full flex flex-col items-center justify-center">
                       <div className="p-3 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-full inline-block">
                         <Upload className="size-6" />
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                          Click to upload or drag & drop hazard photo
+                          Click to upload hazard photo
                         </p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">JPG, PNG, or WEBP (Max 10MB)</p>
                       </div>
-                    </div>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                    </label>
                   )}
                 </div>
 
@@ -226,7 +279,7 @@ export default function SubmitHazardPage() {
                     <Sparkles className="size-4 text-blue-600" /> AI Triage Assessment Preview
                   </span>
                   <Badge variant="outline" className="text-[10px] border-blue-400/50 text-blue-600 dark:text-blue-300">
-                    Confidence: 97.4%
+                    Confidence: {confidence}%
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -238,8 +291,8 @@ export default function SubmitHazardPage() {
 
                 <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/50">
                   <span className="text-muted-foreground">AI Severity Score:</span>
-                  <Badge className="bg-red-600 text-white font-mono font-bold text-xs px-2 py-0.5">
-                    5 / 5 (Critical Emergency)
+                  <Badge className={`text-white font-mono font-bold text-xs px-2 py-0.5 ${severity >= 4 ? 'bg-red-600' : severity === 3 ? 'bg-orange-500' : 'bg-yellow-500'}`}>
+                    {severity} / 5 ({severity >= 4 ? "Critical" : "Hazard"})
                   </Badge>
                 </div>
 
@@ -318,10 +371,10 @@ export default function SubmitHazardPage() {
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold">Hazard Category</Label>
                   <Select value={category} onValueChange={(val) => setCategory(val ?? "")}>
-                    <SelectTrigger className="text-xs">
+                    <SelectTrigger className="text-xs w-[60%]">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent alignItemWithTrigger={false}>
                       <SelectItem value="Water Leak" className="text-xs">Water Main Leak / Flooding</SelectItem>
                       <SelectItem value="Pothole" className="text-xs">Pothole / Road Surface Damage</SelectItem>
                       <SelectItem value="Power Outage" className="text-xs">Electrical / Streetlight Failure</SelectItem>
