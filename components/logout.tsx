@@ -11,7 +11,7 @@ export default function LogoutButton() {
   const handleLogout = async () => {
     // Sign out via NextAuth and then send the user back to the home page
     await signOut({ redirect: false });
-    router.replace("/"); // or any public page you prefer
+    window.location.href = "/";
   };
 
   return (

@@ -26,5 +26,12 @@ export async function seedUsers(db: NeonHttpDatabase<any>) {
     departmentId: "dept-water",
   }).returning();
   
-  return { citizen, fieldWorker, dispatcher };
+  const admin = await db.insert(users).values({
+    id: "usr-admin-1",
+    name: "City Executive Admin",
+    email: "admin@citypulse.gov",
+    role: "ADMIN",
+  }).returning();
+  
+  return { citizen, fieldWorker, dispatcher, admin };
 }
