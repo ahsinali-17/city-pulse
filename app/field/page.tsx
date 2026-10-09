@@ -33,7 +33,7 @@ export default async function FieldWorkerPage() {
     );
 
   const dbTasks = assignedTickets
-    .filter(t => t.assignedCrewId === session.user.id || session.user.role !== "FIELD_WORKER") // fallback for demo
+    .filter(t => t.assignedCrewId === session.user.id)
     .map((t) => {
       // Map valid status values to FieldTask statuses
       let mappedStatus: FieldTask["status"] = t.status === "RESOLVED" ? "COMPLETED" : t.status === "DISPATCHED" ? "ASSIGNED" : t.status as FieldTask["status"]

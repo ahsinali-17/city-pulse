@@ -1,6 +1,7 @@
 import { LoginForm } from "@/components/login-form";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
   return (
@@ -25,10 +26,20 @@ export default function LoginPage() {
             <p>john.public@example.com (CITIZEN)</p>
             <p>crew4@citypulse.gov (FIELD WORKER)</p>
             <p>sjenkins@citypulse.gov (MANAGER)</p>
+            <p>admin@citypulse.gov</p>
           </div>
           <p className="mt-3 text-[10px] opacity-70">
             (Any password works for the prototype)
           </p>
+        </div>
+        <div className="text-center text-sm text-muted-foreground">
+          Don't have an account?{" "}
+          <Link
+            href="/signup"
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Sign up
+          </Link>
         </div>
       </div>
     </div>

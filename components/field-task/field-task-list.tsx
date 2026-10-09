@@ -70,9 +70,7 @@ export function FieldTaskList({ initialTasks }: FieldTaskListProps) {
 
   // Seed / sync server tasks into Dexie on initial load when online
   useEffect(() => {
-    if (initialTasks && initialTasks.length > 0) {
-      cacheTasksLocally(initialTasks);
-    }
+    cacheTasksLocally(initialTasks);
   }, [initialTasks]);
 
   // Track online/offline status

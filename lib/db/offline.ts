@@ -29,6 +29,9 @@ export const offlineDB =
 export async function cacheTasksLocally(tasks: FieldTask[]) {
   if (!offlineDB) return;
   try {
+    // The cache is scoped to the currently signed-in worker. Remove tasks
+    // from a previous worker before writing this worker's assignments.
+    await offlineDB.tasks.clear();
     await offlineDB.tasks.bulkPut(tasks);
   } catch (error) {
     console.error("Failed to cache tasks in Dexie:", error);

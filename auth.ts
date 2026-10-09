@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 
@@ -16,7 +17,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email) return null;
+        if (!credentials?.email || !credentials?.password) return null;
 
         // Fetch user from Neon database
         const userArray = await db
@@ -30,8 +31,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        // For MVP / Prototype Phase: We accept ANY password as long as the email exists in our seeded DB.
-        // In Phase 3/4, we would add bcrypt password verification here.
+        // If user has a hashed password (sign-up users), verify with bcrypt
+        if (user.passwordHash) {
+          const isValid = await bcrypt.compare(
+            credentials.password as string,
+            user.passwordHash
+          );
+          if (!isValid) return null;
+        }
+        // Legacy seeded users without passwordHash: accept any password for dev convenience
+
         return {
           id: user.id,
           name: user.name,
@@ -60,3 +69,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 });
+
