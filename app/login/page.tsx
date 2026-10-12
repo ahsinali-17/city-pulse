@@ -26,11 +26,9 @@ export default function LoginPage() {
             <p>john.public@example.com (CITIZEN)</p>
             <p>crew4@citypulse.gov (FIELD WORKER)</p>
             <p>sjenkins@citypulse.gov (MANAGER)</p>
-            <p>admin@citypulse.gov</p>
+            <p>admin@citypulse.gov (ADMIN)</p>
+            <p>citypulse123 (Password)</p>
           </div>
-          <p className="mt-3 text-[10px] opacity-70">
-            (Any password works for the prototype)
-          </p>
         </div>
         <div className="text-center text-sm text-muted-foreground">
           Don't have an account?{" "}

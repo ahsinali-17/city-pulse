@@ -8,8 +8,8 @@ import {
   ArrowUpRight,
   Filter,
   MapPin,
-  DeleteIcon,
   Trash2,
+  Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,8 @@ export interface AdminTicket {
   priority: string;
   severity: number;
   address: string;
+  departmentId: string | null;
+  departmentName: string;
   createdAt: string; // ISO string
 }
 
@@ -36,14 +38,28 @@ const RECENCY_OPTIONS = [
   { label: "Last 30 Days", days: 30 },
   { label: "Last 90 Days", days: 90 },
 ];
+const WORKFLOW_OPTIONS = [
+  { label: "All Workflows", value: "ALL" },
+  { label: "Ongoing", value: "ONGOING" },
+  { label: "Resolved", value: "RESOLVED" },
+];
+const RESOLVED_STATUSES = ["RESOLVED", "COMPLETED"];
 
 export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[] }) {
+  const [currentTime] = useState(() => Date.now());
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [severityFilter, setSeverityFilter] = useState("All");
   const [recencyDays, setRecencyDays] = useState(0);
+  const [workflowFilter, setWorkflowFilter] = useState("ALL");
+  const [departmentFilter, setDepartmentFilter] = useState("ALL");
+
+  const departmentOptions = useMemo(() => {
+    const uniqueDepartments = new Map<string, string>();
+    allTickets.forEach((ticket) => uniqueDepartments.set(ticket.departmentId ?? "UNASSIGNED", ticket.departmentName));
+    return [...uniqueDepartments.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [allTickets]);
 
   const filteredTickets = useMemo(() => {
-    const now = Date.now();
     return allTickets.filter((t) => {
       if (categoryFilter !== "All" && !t.category.toLowerCase().includes(categoryFilter.toLowerCase())) {
         return false;
@@ -51,18 +67,21 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
       if (severityFilter !== "All" && t.severity !== Number(severityFilter)) {
         return false;
       }
+      if (workflowFilter === "RESOLVED" && !RESOLVED_STATUSES.includes(t.status)) return false;
+      if (workflowFilter === "ONGOING" && RESOLVED_STATUSES.includes(t.status)) return false;
+      if (departmentFilter !== "ALL" && (t.departmentId ?? "UNASSIGNED") !== departmentFilter) return false;
       if (recencyDays > 0) {
-        const ticketAge = now - new Date(t.createdAt).getTime();
+        const ticketAge = currentTime - new Date(t.createdAt).getTime();
         if (ticketAge > recencyDays * 24 * 60 * 60 * 1000) return false;
       }
       return true;
     });
-  }, [allTickets, categoryFilter, severityFilter, recencyDays]);
+  }, [allTickets, categoryFilter, currentTime, departmentFilter, recencyDays, severityFilter, workflowFilter]);
 
   const totalTickets = filteredTickets.length;
-  const resolvedTickets = filteredTickets.filter((t) => t.status === "RESOLVED").length;
+  const resolvedTickets = filteredTickets.filter((t) => RESOLVED_STATUSES.includes(t.status)).length;
   const inProgressTickets = filteredTickets.filter(
-    (t) => t.status === "IN_PROGRESS" || t.status === "ON_SITE" || t.status === "EN_ROUTE"
+    (t) => !RESOLVED_STATUSES.includes(t.status)
   ).length;
   const urgentTickets = filteredTickets.filter((t) => t.priority === "URGENT").length;
 
@@ -82,7 +101,19 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
     })),
   };
 
-  const hasActiveFilters = categoryFilter !== "All" || severityFilter !== "All" || recencyDays > 0;
+  const departmentProgress = useMemo(() => {
+    const grouped = new Map<string, { name: string; ongoing: number; resolved: number }>();
+    filteredTickets.forEach((ticket) => {
+      const key = ticket.departmentId ?? "UNASSIGNED";
+      const current = grouped.get(key) ?? { name: ticket.departmentName, ongoing: 0, resolved: 0 };
+      if (RESOLVED_STATUSES.includes(ticket.status)) current.resolved++;
+      else current.ongoing++;
+      grouped.set(key, current);
+    });
+    return [...grouped.values()].sort((a, b) => (b.ongoing + b.resolved) - (a.ongoing + a.resolved));
+  }, [filteredTickets]);
+
+  const hasActiveFilters = categoryFilter !== "All" || severityFilter !== "All" || recencyDays > 0 || workflowFilter !== "ALL" || departmentFilter !== "ALL";
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
@@ -163,6 +194,39 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               </select>
             </div>
 
+            {/* Workflow Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Workflow
+              </label>
+              <select
+                value={workflowFilter}
+                onChange={(e) => setWorkflowFilter(e.target.value)}
+                className="block w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+              >
+                {WORKFLOW_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Department Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Department
+              </label>
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="block w-52 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+              >
+                <option value="ALL">All Departments</option>
+                {departmentOptions.map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Reset */}
             {hasActiveFilters && (
               <div className="flex items-end justify-center my-1 pt-3">
@@ -173,6 +237,8 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
                     setCategoryFilter("All");
                     setSeverityFilter("All");
                     setRecencyDays(0);
+                    setWorkflowFilter("ALL");
+                    setDepartmentFilter("ALL");
                   }}
                   className="text-xs text-muted-foreground hover:text-red-600 cursor-pointer"
                 >
@@ -238,6 +304,43 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
         </Card>
       </div>
 
+      {/* Department Progress */}
+      <Card className="shadow-sm">
+        <CardHeader className="border-b bg-slate-50/50 dark:bg-slate-900/20">
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="size-4 text-indigo-500" />
+            Department Progress
+          </CardTitle>
+          <CardDescription>Ongoing versus resolved work in the current dashboard scope.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-5">
+          {departmentProgress.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No department activity matches the current filters.</p>
+          ) : (
+            departmentProgress.map((department) => {
+              const total = department.ongoing + department.resolved;
+              const resolvedWidth = total === 0 ? 0 : (department.resolved / total) * 100;
+              return (
+                <div key={department.name} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <span className="truncate font-medium text-slate-800 dark:text-slate-200">{department.name}</span>
+                    <span className="shrink-0 text-muted-foreground">{department.ongoing} ongoing · {department.resolved} resolved</span>
+                  </div>
+                  <div className="flex h-2.5 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-950/50">
+                    <div className="bg-blue-500" style={{ width: `${100 - resolvedWidth}%` }} />
+                    <div className="bg-emerald-500" style={{ width: `${resolvedWidth}%` }} />
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div className="flex items-center gap-4 pt-1 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-blue-500" />Ongoing</span>
+            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-emerald-500" />Resolved</span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Incident Table */}
       <Card className="shadow-sm overflow-hidden">
         <CardHeader className="border-b bg-slate-50/50 dark:bg-slate-900/20">
@@ -257,6 +360,7 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Priority</th>
                   <th className="px-4 py-3 font-medium">Title</th>
+                  <th className="px-4 py-3 font-medium">Department</th>
                   <th className="px-4 py-3 font-medium">Location</th>
                   <th className="px-4 py-3 font-medium">Created Date</th>
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
@@ -284,6 +388,9 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100 max-w-50 truncate">
                       {ticket.title}
                     </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {ticket.departmentName}
+                    </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground max-w-40 truncate">
                       <span className="inline-flex items-center gap-1">
                         <MapPin className="size-3 shrink-0" />
@@ -305,7 +412,7 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
                 ))}
                 {filteredTickets.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                       No incidents match the current filters.
                     </td>
                   </tr>

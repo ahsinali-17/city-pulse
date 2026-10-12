@@ -31,15 +31,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        // If user has a hashed password (sign-up users), verify with bcrypt
-        if (user.passwordHash) {
-          const isValid = await bcrypt.compare(
-            credentials.password as string,
-            user.passwordHash
-          );
-          if (!isValid) return null;
-        }
-        // Legacy seeded users without passwordHash: accept any password for dev convenience
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          user.passwordHash
+        );
+        if (!isValid) return null;
 
         return {
           id: user.id,

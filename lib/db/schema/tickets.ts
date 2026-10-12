@@ -1,6 +1,19 @@
-import { pgTable, text, timestamp, integer, doublePrecision, json } from "drizzle-orm/pg-core";
+import { doublePrecision, integer, json, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { departments } from "./departments";
+
+export const routingSource = pgEnum("routing_source", [
+  "AI",
+  "MANAGER",
+  "ADMIN",
+  "REVIEW",
+]);
+
+export const routingReviewStatus = pgEnum("routing_review_status", [
+  "NONE",
+  "NEEDS_ADMIN_REVIEW",
+  "RESOLVED",
+]);
 
 export const tickets = pgTable("tickets", {
   id: text("id").primaryKey(), // e.g. 'HAZ-8902'
@@ -27,6 +40,12 @@ export const tickets = pgTable("tickets", {
   // AI & Timeline
   aiAnalysis: json("ai_analysis").$type<any>(),
   timeline: json("timeline").$type<any[]>(),
+  aiSuggestedDepartmentId: text("ai_suggested_department_id").references(() => departments.id),
+  aiConfidence: doublePrecision("ai_confidence"),
+  routingSource: routingSource("routing_source").notNull().default("AI"),
+  routingReviewStatus: routingReviewStatus("routing_review_status").notNull().default("NONE"),
+  routingCorrectionReason: text("routing_correction_reason"),
+  routingUpdatedAt: timestamp("routing_updated_at"),
   
   // Relations
   reporterId: text("reporter_id").references(() => users.id),

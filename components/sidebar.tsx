@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   BarChart3,
   UserPlus,
+  Building2,
   Radio,
   CheckCircle2,
   ChevronRight,
@@ -55,6 +56,7 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "Executive Analytics", href: "/admin", icon: BarChart3 },
       { title: "Staff Onboarding", href: "/admin/users", icon: UserPlus },
+      { title: "Department Control", href: "/admin/departments", icon: Building2 },
     ],
   },
 ];
