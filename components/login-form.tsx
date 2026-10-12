@@ -1,18 +1,19 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LogIn, Loader2 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
+  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
 
@@ -32,7 +33,9 @@ export function LoginForm() {
       if (res?.error) {
         setError("Invalid credentials. Please check the mock emails.");
       } else if (res?.url) {
-        window.location.href = res.url;
+        router.push(res.url);
+      } else {
+        router.push(callbackUrl || "/");
       }
     } catch (err) {
       setError("An unexpected error occurred.");

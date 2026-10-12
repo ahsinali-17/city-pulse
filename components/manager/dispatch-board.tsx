@@ -57,6 +57,7 @@ export function DispatchBoard({
   const [status, setStatus] = useState("ALL");
   const [department, setDepartment] = useState("ALL");
   const [sortUrgentFirst, setSortUrgentFirst] = useState(true);
+  const [pendingTicketId, setPendingTicketId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
@@ -73,10 +74,17 @@ export function DispatchBoard({
   const urgentCount = tickets.filter((ticket) => ticket.priority === "URGENT").length;
   const inProgressCount = tickets.filter((ticket) => ["EN_ROUTE", "ON_SITE", "IN_PROGRESS"].includes(ticket.status)).length;
 
-  const runAction = (action: () => Promise<void>) => {
+  const runAction = (ticketId: string, action: () => Promise<void>) => {
     setError("");
+    setPendingTicketId(ticketId);
     startTransition(async () => {
-      try { await action(); } catch (actionError) { setError(actionError instanceof Error ? actionError.message : "Dispatch update failed."); }
+      try {
+        await action();
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Dispatch update failed.");
+      } finally {
+        setPendingTicketId((current) => (current === ticketId ? null : current));
+      }
     });
   };
 
@@ -111,12 +119,12 @@ export function DispatchBoard({
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-sm">
+          <table className="w-full min-w-240 text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-muted-foreground dark:border-slate-800 dark:bg-slate-900/70">
               <tr><th className="px-4 py-3">Incident</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Severity</th><th className="px-4 py-3">Department</th><th className="px-4 py-3">Field worker</th><th className="px-4 py-3 text-right">Action</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredTickets.map((ticket) => <DispatchRow key={ticket.id} ticket={ticket} workers={workers} isPending={isPending} runAction={runAction} />)}
+              {filteredTickets.map((ticket) => <DispatchRow key={ticket.id} ticket={ticket} workers={workers} isPending={isPending && pendingTicketId === ticket.id} runAction={runAction} />)}
             </tbody>
           </table>
         </div>
@@ -127,20 +135,20 @@ export function DispatchBoard({
   );
 }
 
-function DispatchRow({ ticket, workers, isPending, runAction }: { ticket: DispatchTicket; workers: Worker[]; isPending: boolean; runAction: (action: () => Promise<void>) => void }) {
+function DispatchRow({ ticket, workers, isPending, runAction }: { ticket: DispatchTicket; workers: Worker[]; isPending: boolean; runAction: (ticketId: string, action: () => Promise<void>) => void }) {
   const [workerId, setWorkerId] = useState(ticket.assignedCrewId || "NONE");
   const [severity, setSeverity] = useState(String(ticket.severity));
   const isUnassigned = !ticket.assignedCrewId;
-  const matchingWorkers = workers.filter((worker) => !ticket.departmentId || !worker.departmentId || worker.departmentId === ticket.departmentId);
+  const matchingWorkers = workers.filter((worker) => ticket.departmentId !== null && worker.departmentId === ticket.departmentId);
 
   return (
     <tr className={isUnassigned ? "bg-amber-50/40 dark:bg-amber-950/10" : "hover:bg-slate-50/60 dark:hover:bg-slate-900/40"}>
       <td className="px-4 py-4"><div className="flex items-start gap-3"><div className={`mt-0.5 size-2 rounded-full ${ticket.priority === "URGENT" ? "bg-red-500" : "bg-blue-500"}`} /><div><div className="flex items-center gap-2"><span className="font-mono text-[11px] text-muted-foreground">{ticket.id}</span><Badge variant="outline" className={`text-[10px] ${PRIORITY_STYLES[ticket.priority]}`}>{ticket.priority}</Badge></div><p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{ticket.title}</p><p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3" />{ticket.address}</p></div></div></td>
       <td className="px-4 py-4"><Badge variant="secondary" className="whitespace-nowrap text-[10px]">{ticket.status.replaceAll("_", " ")}</Badge></td>
-      <td className="px-4 py-4"><div className="flex items-center gap-2"><select aria-label={`Severity for ${ticket.id}`} value={severity} onChange={(event) => setSeverity(event.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select><Button variant="ghost" size="sm" className="h-8 px-2 text-[11px]" disabled={isPending || severity === String(ticket.severity)} onClick={() => runAction(() => overrideTicketSeverity(ticket.id, Number(severity)))}>Save</Button></div></td>
+      <td className="px-4 py-4"><div className="flex items-center gap-2"><select aria-label={`Severity for ${ticket.id}`} value={severity} onChange={(event) => setSeverity(event.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select><Button variant="ghost" size="sm" className="h-8 px-2 text-[11px]" disabled={isPending || severity === String(ticket.severity)} onClick={() => runAction(ticket.id, () => overrideTicketSeverity(ticket.id, Number(severity)))}>Save</Button></div></td>
       <td className="px-4 py-4 text-xs text-muted-foreground">{ticket.department}</td>
-      <td className="px-4 py-4"><select aria-label={`Worker for ${ticket.id}`} value={workerId} onChange={(event) => setWorkerId(event.target.value)} disabled={isPending} className="h-8 max-w-[190px] rounded-md border border-input bg-background px-2 text-xs"><option value="NONE">Needs assignment</option>{matchingWorkers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}</select></td>
-      <td className="px-4 py-4 text-right"><Button size="sm" className="gap-1.5" disabled={isPending || workerId === (ticket.assignedCrewId || "NONE")} onClick={() => runAction(() => assignTicket(ticket.id, workerId === "NONE" ? null : workerId))}>{isPending ? <Loader2 className="size-3.5 animate-spin" /> : <HardHat className="size-3.5" />}{isUnassigned ? "Dispatch" : "Reassign"}</Button></td>
+      <td className="px-4 py-4"><select aria-label={`Worker for ${ticket.id}`} value={workerId} onChange={(event) => setWorkerId(event.target.value)} disabled={isPending} className="h-8 max-w-47.5 rounded-md border border-input bg-background px-2 text-xs"><option value="NONE">Needs assignment</option>{matchingWorkers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}</select></td>
+      <td className="px-4 py-4 text-right"><Button size="sm" className="gap-1.5" disabled={isPending || workerId === (ticket.assignedCrewId || "NONE")} onClick={() => runAction(ticket.id, () => assignTicket(ticket.id, workerId === "NONE" ? null : workerId))}>{isPending ? <Loader2 className="size-3.5 animate-spin" /> : <HardHat className="size-3.5" />}{isUnassigned ? "Dispatch" : "Reassign"}</Button></td>
     </tr>
   );
 }

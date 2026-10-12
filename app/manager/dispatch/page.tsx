@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { departments } from "@/lib/db/schema/departments";
 import { tickets } from "@/lib/db/schema/tickets";
 import { users } from "@/lib/db/schema/users";
-import { desc, eq, notInArray } from "drizzle-orm";
+import { and, desc, eq, notInArray } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,21 +17,52 @@ async function DispatchData() {
     redirect("/");
   }
 
+  const [currentUser] = await db
+    .select({ role: users.role, departmentId: users.departmentId, isActive: users.isActive })
+    .from(users)
+    .where(eq(users.id, session.user.id));
+
+  if (!currentUser || !currentUser.isActive || currentUser.role !== session.user.role) {
+    redirect("/");
+  }
+
+  const departmentScope = session.user.role === "MANAGER"
+    ? currentUser.departmentId
+      ? eq(tickets.departmentId, currentUser.departmentId)
+      : null
+    : null;
+
+  if (session.user.role === "MANAGER" && !departmentScope) {
+    redirect("/");
+  }
+
   const [ticketRows, workers, departmentRows] = await Promise.all([
     db
       .select({ ticket: tickets, department: departments, crew: users })
       .from(tickets)
       .leftJoin(departments, eq(tickets.departmentId, departments.id))
       .leftJoin(users, eq(tickets.assignedCrewId, users.id))
-      .where(
-        notInArray(tickets.status, ["RESOLVED", "COMPLETED"])
-      )
+      .where(and(
+        notInArray(tickets.status, ["RESOLVED", "COMPLETED"]),
+        departmentScope ?? undefined,
+      ))
       .orderBy(desc(tickets.createdAt)),
     db
       .select({ id: users.id, name: users.name, departmentId: users.departmentId })
       .from(users)
-      .where(eq(users.role, "FIELD_WORKER")),
-    db.select({ id: departments.id, name: departments.name }).from(departments),
+      .where(and(
+        eq(users.role, "FIELD_WORKER"),
+        eq(users.isActive, true),
+        session.user.role === "MANAGER" && currentUser.departmentId
+          ? eq(users.departmentId, currentUser.departmentId)
+          : undefined,
+      )),
+    db
+      .select({ id: departments.id, name: departments.name })
+      .from(departments)
+      .where(session.user.role === "MANAGER" && currentUser.departmentId
+        ? eq(departments.id, currentUser.departmentId)
+        : undefined),
   ]);
 
   return (
