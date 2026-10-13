@@ -43,6 +43,7 @@ const PRIORITY_STYLES: Record<string, string> = {
   NORMAL: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300",
   LOW: "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
 };
+const PRIORITY_ORDER: Record<string, number> = { LOW: 1, NORMAL: 2, HIGH: 3, URGENT: 4 };
 
 export function DispatchBoard({
   tickets,
@@ -67,7 +68,9 @@ export function DispatchBoard({
       .filter((ticket) => status === "ALL" || ticket.status === status)
       .filter((ticket) => department === "ALL" || ticket.departmentId === department)
       .filter((ticket) => !normalizedQuery || [ticket.id, ticket.title, ticket.address].some((value) => value.toLowerCase().includes(normalizedQuery)))
-      .sort((a, b) => sortUrgentFirst ? (b.severity - a.severity) || (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      .sort((a, b) => sortUrgentFirst
+        ? (PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority]) || (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [department, query, sortUrgentFirst, status, tickets]);
 
   const unassignedCount = tickets.filter((ticket) => !ticket.assignedCrewId).length;
