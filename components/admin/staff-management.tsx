@@ -122,6 +122,36 @@ function DeleteConfirmation({
   );
 }
 
+function ChangeConfirmation({
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  isPending,
+}: {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="mx-4 w-full max-w-md space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900 animate-in zoom-in-95 duration-200">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-amber-100 p-2 dark:bg-amber-950/40"><AlertTriangle className="size-5 text-amber-600 dark:text-amber-400" /></div>
+          <div><h3 className="font-semibold text-slate-900 dark:text-slate-100">{title}</h3><p className="text-xs text-muted-foreground">This change may affect ticket routing.</p></div>
+        </div>
+        <p className="text-sm text-slate-700 dark:text-slate-300">{message}</p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={isPending}>Cancel</Button>
+          <Button size="sm" onClick={onConfirm} disabled={isPending}>{isPending ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}{isPending ? "Applying..." : "Confirm change"}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Individual User Row ────────────────────────────────
 function UserRow({
   user,
@@ -136,6 +166,7 @@ function UserRow({
 }) {
   const [isPending, startTransition] = useTransition();
   const [deleteTarget, setDeleteTarget] = useState(false);
+  const [changeConfirmation, setChangeConfirmation] = useState<{ title: string; message: string; apply: () => Promise<void> } | null>(null);
   const [error, setError] = useState("");
 
   const isSelf = user.id === currentAdminId;
@@ -162,25 +193,45 @@ function UserRow({
     return true;
   });
 
-  const handleRoleChange = (newRole: string) => {
+  const applyRoleChange = (newRole: string) => {
     setError("");
     startTransition(async () => {
       try {
         await updateUserRole(user.id, newRole as "CITIZEN" | "FIELD_WORKER" | "MANAGER" | "ADMIN");
+        setChangeConfirmation(null);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to update role.");
       }
     });
   };
 
-  const handleDepartmentChange = (deptId: string) => {
+  const handleRoleChange = (newRole: string) => {
+    const roleLabel = roleConfig[newRole]?.label || newRole;
+    setChangeConfirmation({
+      title: `Change ${user.name}'s role?`,
+      message: `This will change ${user.name} to ${roleLabel}. Any active tickets assigned to a worker leaving the field-worker role will return to manager dispatch.`,
+      apply: async () => applyRoleChange(newRole),
+    });
+  };
+
+  const applyDepartmentChange = (deptId: string) => {
     setError("");
     startTransition(async () => {
       try {
         await updateUserDepartment(user.id, deptId === "none" ? null : deptId);
+        setChangeConfirmation(null);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to update department.");
       }
+    });
+  };
+
+  const handleDepartmentChange = (deptId: string) => {
+    const departmentName = departments.find((department) => department.id === deptId)?.name || "no department";
+    setChangeConfirmation({
+      title: `Change ${user.name}'s department?`,
+      message: `Move ${user.name} to ${departmentName}? Active tickets assigned to this field worker will become unassigned and return to manager dispatch.`,
+      apply: async () => applyDepartmentChange(deptId),
     });
   };
 
@@ -342,6 +393,19 @@ function UserRow({
               userName={user.name}
               onConfirm={handleDelete}
               onCancel={() => setDeleteTarget(false)}
+              isPending={isPending}
+            />
+          </td>
+        </tr>
+      )}
+      {changeConfirmation && (
+        <tr>
+          <td colSpan={5} className="p-0">
+            <ChangeConfirmation
+              title={changeConfirmation.title}
+              message={changeConfirmation.message}
+              onConfirm={() => { void changeConfirmation.apply(); }}
+              onCancel={() => setChangeConfirmation(null)}
               isPending={isPending}
             />
           </td>

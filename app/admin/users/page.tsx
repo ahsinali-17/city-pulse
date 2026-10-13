@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import { departments } from "@/lib/db/schema/departments";
-import { desc } from "drizzle-orm";
+import { desc, ne } from "drizzle-orm";
 import { StaffManagementClient } from "@/components/admin/staff-management";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,7 +19,7 @@ async function StaffTable() {
 
   const [allUsers, allDepartments] = await Promise.all([
     db.select().from(users).orderBy(desc(users.createdAt)),
-    db.select().from(departments),
+    db.select().from(departments).where(ne(departments.status, "ARCHIVED")),
   ]);
 
   const serializedUsers = allUsers.map((u) => ({

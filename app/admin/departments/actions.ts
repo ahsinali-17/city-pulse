@@ -4,7 +4,6 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { departments } from "@/lib/db/schema/departments";
 import { tickets } from "@/lib/db/schema/tickets";
-import { users } from "@/lib/db/schema/users";
 import { and, eq, notInArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -40,42 +39,6 @@ export async function createDepartment(name: string, description: string) {
   revalidatePath("/admin/departments");
 }
 
-export async function appointDepartmentManager(departmentId: string, userId: string) {
-  await requireAdmin();
-
-  const department = await db
-    .select({ status: departments.status })
-    .from(departments)
-    .where(eq(departments.id, departmentId));
-  if (!department[0]) throw new Error("Department not found.");
-  if (department[0].status === "ARCHIVED") throw new Error("Archived departments cannot receive a manager.");
-
-  const candidate = await db
-    .select({ role: users.role, departmentId: users.departmentId, isActive: users.isActive })
-    .from(users)
-    .where(eq(users.id, userId));
-  const user = candidate[0];
-  if (!user || user.role !== "FIELD_WORKER" || !user.isActive || user.departmentId !== departmentId) {
-    throw new Error("Only active field workers from this department can become its manager.");
-  }
-
-  const existingManager = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(eq(users.role, "MANAGER"), eq(users.departmentId, departmentId), eq(users.isActive, true)));
-  if (existingManager.length > 0) {
-    throw new Error("This department already has an active manager.");
-  }
-
-  await db.batch([
-    db.update(users).set({ role: "MANAGER" }).where(eq(users.id, userId)),
-    db.update(departments).set({ status: "ACTIVE", statusReason: null, managerAssignedAt: new Date() }).where(eq(departments.id, departmentId)),
-  ]);
-
-  revalidatePath("/admin/departments");
-  revalidatePath("/admin/users");
-}
-
 export async function suspendDepartment(departmentId: string) {
   await requireAdmin();
 
@@ -102,4 +65,30 @@ export async function archiveDepartment(departmentId: string) {
   revalidatePath("/admin/departments");
   revalidatePath("/manager/dispatch");
   revalidatePath("/admin");
+}
+
+export async function reactivateDepartment(departmentId: string) {
+  await requireAdmin();
+
+  const [department] = await db
+    .select({ status: departments.status })
+    .from(departments)
+    .where(eq(departments.id, departmentId));
+
+  if (!department) {
+    throw new Error("Department not found.");
+  }
+
+  if (department.status !== "ARCHIVED") {
+    throw new Error("Only archived departments can be reactivated.");
+  }
+
+  await db
+    .update(departments)
+    .set({ status: "SUSPENDED", statusReason: "NO_MANAGER", managerAssignedAt: null })
+    .where(eq(departments.id, departmentId));
+
+  revalidatePath("/admin/departments");
+  revalidatePath("/admin/users");
+  revalidatePath("/manager/dispatch");
 }
