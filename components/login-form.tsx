@@ -1,7 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,30 +13,22 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const requestedPath = searchParams.get("callbackUrl") || "/";
+  const callbackUrl = requestedPath.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/";
+  const callbackError = searchParams.get("error");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
     try {
-      const res = await signIn("credentials", {
-        redirect: false,
+      await signIn("credentials", {
         email,
         password,
-        callbackUrl,
+        redirectTo: callbackUrl,
       });
-
-      if (res?.error) {
-        setError("Invalid credentials. Please check the mock emails.");
-      } else if (res?.url) {
-        router.push(res.url);
-      } else {
-        router.push(callbackUrl || "/");
-      }
     } catch (err) {
       setError("An unexpected error occurred.");
     } finally {
@@ -74,7 +66,7 @@ export function LoginForm() {
         />
       </div>
 
-      {error && (
+      {(error || callbackError) && (
         <div className="text-xs text-red-500 font-medium bg-red-50 dark:bg-red-950/50 p-2 rounded border border-red-200 dark:border-red-900">
           {error}
         </div>

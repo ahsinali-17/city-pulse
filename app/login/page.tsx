@@ -25,7 +25,7 @@ export default function LoginPage() {
           <div className="mt-2 space-y-1 font-mono">
             <p>john.public@example.com (CITIZEN)</p>
             <p>crew4@citypulse.gov (FIELD WORKER)</p>
-            <p>crew4@citypulse.gov (WATER MANAGER)</p>
+              <p>sjenkins@citypulse.gov (WATER MANAGER)</p>
             <p>admin@citypulse.gov (ADMIN)</p>
             <p>citypulse123 (Password)</p>
           </div>

@@ -15,6 +15,10 @@ export default auth((req) => {
   // Redirect authenticated users away from Auth pages
   if (isAuthRoute) {
     if (isLoggedIn) {
+      const callbackUrl = nextUrl.searchParams.get("callbackUrl");
+      if (callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//")) {
+        return Response.redirect(new URL(callbackUrl, nextUrl));
+      }
       if (role === "CITIZEN") return Response.redirect(new URL("/citizen/new", nextUrl));
       if (role === "FIELD_WORKER") return Response.redirect(new URL("/field", nextUrl));
       if (role === "MANAGER" || role === "ADMIN") return Response.redirect(new URL("/manager/map", nextUrl));

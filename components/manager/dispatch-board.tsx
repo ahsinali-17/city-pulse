@@ -27,6 +27,7 @@ type DispatchTicket = {
   priority: string;
   address: string;
   department: string;
+  departmentStatus: "ACTIVE" | "SUSPENDED" | "ARCHIVED" | null;
   departmentId: string | null;
   assignedCrewId: string | null;
   assignedCrew: string | null;
@@ -142,16 +143,17 @@ function DispatchRow({ ticket, workers, isPending, runAction }: { ticket: Dispat
   const [workerId, setWorkerId] = useState(ticket.assignedCrewId || "NONE");
   const [severity, setSeverity] = useState(String(ticket.severity));
   const isUnassigned = !ticket.assignedCrewId;
+  const isDepartmentUnavailable = ticket.departmentStatus === "SUSPENDED" || ticket.departmentStatus === "ARCHIVED";
   const matchingWorkers = workers.filter((worker) => ticket.departmentId !== null && worker.departmentId === ticket.departmentId);
 
   return (
-    <tr className={isUnassigned ? "bg-amber-50/40 dark:bg-amber-950/10" : "hover:bg-slate-50/60 dark:hover:bg-slate-900/40"}>
+    <tr className={isDepartmentUnavailable ? "bg-slate-100/80 text-slate-500 dark:bg-slate-900/70 dark:text-slate-400" : isUnassigned ? "bg-amber-50/40 dark:bg-amber-950/10" : "hover:bg-slate-50/60 dark:hover:bg-slate-900/40"}>
       <td className="px-4 py-4"><div className="flex items-start gap-3"><div className={`mt-0.5 size-2 rounded-full ${ticket.priority === "URGENT" ? "bg-red-500" : "bg-blue-500"}`} /><div><div className="flex items-center gap-2"><span className="font-mono text-[11px] text-muted-foreground">{ticket.id}</span><Badge variant="outline" className={`text-[10px] ${PRIORITY_STYLES[ticket.priority]}`}>{ticket.priority}</Badge></div><p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{ticket.title}</p><p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3" />{ticket.address}</p></div></div></td>
       <td className="px-4 py-4"><Badge variant="secondary" className="whitespace-nowrap text-[10px]">{ticket.status.replaceAll("_", " ")}</Badge></td>
-      <td className="px-4 py-4"><div className="flex items-center gap-2"><select aria-label={`Severity for ${ticket.id}`} value={severity} onChange={(event) => setSeverity(event.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select><Button variant="ghost" size="sm" className="h-8 px-2 text-[11px]" disabled={isPending || severity === String(ticket.severity)} onClick={() => runAction(ticket.id, () => overrideTicketSeverity(ticket.id, Number(severity)))}>Save</Button></div></td>
-      <td className="px-4 py-4 text-xs text-muted-foreground">{ticket.department}</td>
-      <td className="px-4 py-4"><select aria-label={`Worker for ${ticket.id}`} value={workerId} onChange={(event) => setWorkerId(event.target.value)} disabled={isPending} className="h-8 max-w-47.5 rounded-md border border-input bg-background px-2 text-xs"><option value="NONE">Needs assignment</option>{matchingWorkers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}</select></td>
-      <td className="px-4 py-4 text-right"><Button size="sm" className="gap-1.5" disabled={isPending || workerId === (ticket.assignedCrewId || "NONE")} onClick={() => runAction(ticket.id, () => assignTicket(ticket.id, workerId === "NONE" ? null : workerId))}>{isPending ? <Loader2 className="size-3.5 animate-spin" /> : <HardHat className="size-3.5" />}{isUnassigned ? "Dispatch" : "Reassign"}</Button></td>
+      <td className="px-4 py-4"><div className="flex items-center gap-2"><select aria-label={`Severity for ${ticket.id}`} value={severity} onChange={(event) => setSeverity(event.target.value)} disabled={isPending || isDepartmentUnavailable} className="h-8 rounded-md border border-input bg-background px-2 text-xs"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select><Button variant="ghost" size="sm" className="h-8 px-2 text-[11px]" disabled={isPending || isDepartmentUnavailable || severity === String(ticket.severity)} onClick={() => runAction(ticket.id, () => overrideTicketSeverity(ticket.id, Number(severity)))}>Save</Button></div></td>
+      <td className="px-4 py-4 text-xs text-muted-foreground"><div className="flex flex-wrap items-center gap-2"><span>{ticket.department}</span>{ticket.departmentStatus && ticket.departmentStatus !== "ACTIVE" && <Badge variant="outline" className="border-slate-300 bg-slate-200 text-[10px] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">{ticket.departmentStatus}</Badge>}</div></td>
+      <td className="px-4 py-4"><select aria-label={`Worker for ${ticket.id}`} value={workerId} onChange={(event) => setWorkerId(event.target.value)} disabled={isPending || isDepartmentUnavailable} className="h-8 max-w-47.5 rounded-md border border-input bg-background px-2 text-xs"><option value="NONE">Needs assignment</option>{matchingWorkers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}</select></td>
+      <td className="px-4 py-4 text-right"><Button size="sm" className="gap-1.5" disabled={isPending || isDepartmentUnavailable || workerId === (ticket.assignedCrewId || "NONE")} onClick={() => runAction(ticket.id, () => assignTicket(ticket.id, workerId === "NONE" ? null : workerId))}>{isPending ? <Loader2 className="size-3.5 animate-spin" /> : <HardHat className="size-3.5" />}{isDepartmentUnavailable ? "Review" : isUnassigned ? "Dispatch" : "Reassign"}</Button></td>
     </tr>
   );
 }

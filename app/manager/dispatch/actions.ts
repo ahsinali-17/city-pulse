@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
+import { departments } from "@/lib/db/schema/departments";
 import { db } from "@/lib/db";
 import { tickets } from "@/lib/db/schema/tickets";
 import { users } from "@/lib/db/schema/users";
@@ -46,6 +47,19 @@ export async function assignTicket(ticketId: string, workerId: string | null) {
   }
 
   if (workerId) {
+    if (!ticket.departmentId) {
+      throw new Error("Tickets without a department cannot be assigned.");
+    }
+
+    const [department] = await db
+      .select({ status: departments.status })
+      .from(departments)
+      .where(eq(departments.id, ticket.departmentId));
+
+    if (!department || department.status !== "ACTIVE") {
+      throw new Error("New assignments are unavailable while this department is suspended or archived.");
+    }
+
     const worker = await db
       .select({ id: users.id, departmentId: users.departmentId, isActive: users.isActive })
       .from(users)

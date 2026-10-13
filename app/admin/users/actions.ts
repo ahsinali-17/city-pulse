@@ -98,17 +98,11 @@ export async function updateUserRole(
   if (needsCrewCleanup) {
     await db
       .update(tickets)
-      .set({
-        assignedCrewId: null,
-        status: "TRIAGED",
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(tickets.assignedCrewId, userId),
-          notInArray(tickets.status, ["RESOLVED", "COMPLETED"])
-        )
-      );
+      .set({ assignedCrewId: null, status: "TRIAGED", updatedAt: new Date() })
+      .where(and(
+        eq(tickets.assignedCrewId, userId),
+        notInArray(tickets.status, ["RESOLVED", "COMPLETED"]),
+      ));
   }
 
   await db.update(users).set(updates).where(eq(users.id, userId));
@@ -188,11 +182,7 @@ export async function updateUserDepartment(
   if (currentUser.role === "FIELD_WORKER" && previousDepartmentId !== departmentId) {
     await db
       .update(tickets)
-      .set({
-        assignedCrewId: null,
-        status: "TRIAGED",
-        updatedAt: new Date(),
-      })
+      .set({ assignedCrewId: null, status: "TRIAGED", updatedAt: new Date() })
       .where(and(
         eq(tickets.assignedCrewId, userId),
         notInArray(tickets.status, ["RESOLVED", "COMPLETED"]),

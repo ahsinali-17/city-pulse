@@ -20,6 +20,7 @@ async function DispatchData() {
   const [currentUser] = await db
     .select({ role: users.role, departmentId: users.departmentId, isActive: users.isActive })
     .from(users)
+    .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(eq(users.id, session.user.id));
 
   if (!currentUser || !currentUser.isActive || currentUser.role !== session.user.role) {
@@ -76,6 +77,7 @@ async function DispatchData() {
         priority: ticket.priority || "NORMAL",
         address: ticket.address,
         department: department?.name || "Unassigned",
+        departmentStatus: department?.status || null,
         departmentId: ticket.departmentId,
         assignedCrewId: ticket.assignedCrewId,
         assignedCrew: crew?.name || null,

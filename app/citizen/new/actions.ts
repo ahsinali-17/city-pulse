@@ -1,7 +1,9 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { departments } from "@/lib/db/schema/departments";
 import { tickets } from "@/lib/db/schema/tickets";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 
@@ -24,6 +26,11 @@ export async function submitTicketAction(data: {
   
   // Assign department based on category
   const departmentId = data.category === "Water Leak" ? "dept-water" : "dept-roads";
+  const [department] = await db
+    .select({ status: departments.status })
+    .from(departments)
+    .where(eq(departments.id, departmentId));
+  const departmentAvailable = department?.status === "ACTIVE";
   
   // Calculate priority based on severity
   const priority = data.severity === 5 ? "URGENT" : data.severity === 4 ? "HIGH" : data.severity === 3 ? "NORMAL" : "LOW";
@@ -42,8 +49,12 @@ export async function submitTicketAction(data: {
     status: "REPORTED",
     reporterId: session.user.id,
     departmentId: departmentId,
+    routingReviewStatus: departmentAvailable ? "NONE" : "NEEDS_ADMIN_REVIEW",
+    routingCorrectionReason: departmentAvailable ? null : "DEPARTMENT_UNAVAILABLE",
+    routingUpdatedAt: departmentAvailable ? null : new Date(),
   });
 
   revalidatePath("/citizen/tickets");
+  revalidatePath("/admin");
   return { success: true, ticketId: newId };
 }
