@@ -37,6 +37,18 @@ const SEVERITY_LABELS: Record<number, string> = {
   1: "Minor",
 };
 
+const DEPARTMENT_STATUS_COLORS: Record<string, string> = {
+  ACTIVE: "#22c55e",
+  SUSPENDED: "#f59e0b",
+  ARCHIVED: "#64748b",
+};
+
+const DEPARTMENT_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Active",
+  SUSPENDED: "Suspended",
+  ARCHIVED: "Archived",
+};
+
 export default function MapDashboard({ incidents = [] }: { incidents?: any[] }) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
@@ -151,82 +163,100 @@ export default function MapDashboard({ incidents = [] }: { incidents?: any[] }) 
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {filteredIncidents.map((incident) => (
-            <CircleMarker
-              key={incident.id}
-              center={[incident.coordinates.lat, incident.coordinates.lng]}
-              radius={incident.severity >= 5 ? 12 : incident.severity >= 4 ? 10 : 8}
-              pathOptions={{
-                color: SEVERITY_COLORS[incident.severity],
-                fillColor: SEVERITY_COLORS[incident.severity],
-                fillOpacity: 0.7,
-                weight: 2,
-                opacity: 0.9,
-              }}
-            >
-              <Popup maxWidth={280} minWidth={220}>
-                <div className="space-y-2 p-0.5">
-                  {/* Popup Header: ID + Severity */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-bold text-slate-900">
-                      {incident.id}
-                    </span>
-                    <span
-                      className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
-                      style={{ backgroundColor: SEVERITY_COLORS[incident.severity] }}
-                    >
-                      Sev {incident.severity}/5
-                    </span>
-                  </div>
+          {filteredIncidents.map((incident) => {
+            const departmentStatus = incident.departmentStatus || "ACTIVE";
+            const isUnavailableDepartment = departmentStatus !== "ACTIVE";
 
-                  {/* Title */}
-                  <h3 className="text-sm font-bold text-slate-900 leading-snug">
-                    {incident.title}
-                  </h3>
-
-                  {/* Address */}
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
-                    <MapPin className="size-3 shrink-0" />
-                    {incident.address}
-                  </div>
-
-                  {/* Category + Status Row */}
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200">
-                    <span className="text-slate-500">
-                      {incident.category} • {incident.reportedAt}
-                    </span>
-                    <span
-                      className="font-mono font-semibold px-1.5 py-0.5 rounded text-[10px]"
-                      style={{
-                        backgroundColor:
-                          incident.status === "RESOLVED"
-                            ? "#d1fae5"
-                            : incident.status === "IN_PROGRESS"
-                            ? "#fef3c7"
-                            : "#e0e7ff",
-                        color:
-                          incident.status === "RESOLVED"
-                            ? "#065f46"
-                            : incident.status === "IN_PROGRESS"
-                            ? "#92400e"
-                            : "#3730a3",
-                      }}
-                    >
-                      {incident.status.replace("_", " ")}
-                    </span>
-                  </div>
-
-                  {/* Assigned Crew */}
-                  {incident.assignedCrew && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-amber-700 font-medium">
-                      <HardHat className="size-3 shrink-0" />
-                      {incident.assignedCrew}
+            return (
+              <CircleMarker
+                key={incident.id}
+                center={[incident.coordinates.lat, incident.coordinates.lng]}
+                radius={incident.severity >= 5 ? 12 : incident.severity >= 4 ? 10 : 8}
+                pathOptions={{
+                  color: isUnavailableDepartment
+                    ? DEPARTMENT_STATUS_COLORS[departmentStatus]
+                    : SEVERITY_COLORS[incident.severity],
+                  fillColor: isUnavailableDepartment
+                    ? DEPARTMENT_STATUS_COLORS[departmentStatus]
+                    : SEVERITY_COLORS[incident.severity],
+                  fillOpacity: 0.7,
+                  weight: isUnavailableDepartment ? 4 : 2,
+                  opacity: isUnavailableDepartment ? 1 : 0.9,
+                  dashArray: isUnavailableDepartment ? "8 6" : undefined,
+                }}
+              >
+                <Popup maxWidth={280} minWidth={220}>
+                  <div className="space-y-2 p-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-xs font-bold text-slate-900">
+                        {incident.id}
+                      </span>
+                      <span
+                        className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
+                        style={{ backgroundColor: SEVERITY_COLORS[incident.severity] }}
+                      >
+                        Sev {incident.severity}/5
+                      </span>
                     </div>
-                  )}
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
+
+                    <h3 className="text-sm font-bold text-slate-900 leading-snug">
+                      {incident.title}
+                    </h3>
+
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                      <MapPin className="size-3 shrink-0" />
+                      {incident.address}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200 gap-2">
+                      <span className="text-slate-500">
+                        {incident.category} • {incident.reportedAt}
+                      </span>
+                      <span
+                        className="font-mono font-semibold px-1.5 py-0.5 rounded text-[10px]"
+                        style={{
+                          backgroundColor:
+                            incident.status === "RESOLVED"
+                              ? "#d1fae5"
+                              : incident.status === "IN_PROGRESS"
+                              ? "#fef3c7"
+                              : "#e0e7ff",
+                          color:
+                            incident.status === "RESOLVED"
+                              ? "#065f46"
+                              : incident.status === "IN_PROGRESS"
+                              ? "#92400e"
+                              : "#3730a3",
+                        }}
+                      >
+                        {incident.status.replace("_", " ")}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-[10px] pt-1 border-t border-slate-200">
+                      <span className="text-slate-500">Department</span>
+                      <span
+                        className="inline-flex items-center rounded-full px-1.5 py-0.5 font-semibold"
+                        style={{
+                          backgroundColor: `${DEPARTMENT_STATUS_COLORS[departmentStatus]}20`,
+                          color: DEPARTMENT_STATUS_COLORS[departmentStatus],
+                        }}
+                      >
+                        {incident.department} • {DEPARTMENT_STATUS_LABELS[departmentStatus]}
+                      </span>
+                    </div>
+
+                    {incident.assignedCrew && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-amber-700 font-medium">
+                        <HardHat className="size-3 shrink-0" />
+                        {incident.assignedCrew}
+                      </div>
+                    )}
+                  </div>
+                </Popup>
+              </CircleMarker>
+            );
+          })}
         </MapContainer>
 
         {/* Stats Overlay Panel — Top Left (hidden on mobile) */}
