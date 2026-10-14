@@ -57,6 +57,7 @@ const navGroups: NavGroup[] = [
       { title: "Executive Analytics", href: "/admin", icon: BarChart3 },
       { title: "Staff Onboarding", href: "/admin/users", icon: UserPlus },
       { title: "Department Control", href: "/admin/departments", icon: Building2 },
+      { title: "Review Queue", href: "/admin/review", icon: ShieldAlert },
     ],
   },
 ];

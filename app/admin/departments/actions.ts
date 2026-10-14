@@ -3,8 +3,10 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { departments } from "@/lib/db/schema/departments";
+import { ticketEvents } from "@/lib/db/schema/ticket-events";
 import { tickets } from "@/lib/db/schema/tickets";
-import { and, eq, notInArray } from "drizzle-orm";
+import { users } from "@/lib/db/schema/users";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 async function requireAdmin() {
@@ -12,6 +14,8 @@ async function requireAdmin() {
   if (!session?.user || session.user.role !== "ADMIN") {
     throw new Error("Unauthorized: Admin access required.");
   }
+
+  return session;
 }
 
 export async function createDepartment(name: string, description: string) {
@@ -51,15 +55,77 @@ export async function suspendDepartment(departmentId: string) {
   revalidatePath("/manager/dispatch");
 }
 
-export async function archiveDepartment(departmentId: string) {
+export async function unsuspendDepartment(departmentId: string) {
   await requireAdmin();
 
+  const [department] = await db
+    .select({ status: departments.status, statusReason: departments.statusReason })
+    .from(departments)
+    .where(eq(departments.id, departmentId));
+
+  if (!department) {
+    throw new Error("Department not found.");
+  }
+
+  if (department.status !== "SUSPENDED") {
+    throw new Error("Only suspended departments can be unsuspended.");
+  }
+
+  if (department.statusReason === "NO_MANAGER" || department.statusReason === "MANAGER_DEACTIVATED") {
+    throw new Error("This department is suspended because no manager is assigned. Appoint a manager before unsuspending it.");
+  }
+
+  await db
+    .update(departments)
+    .set({ status: "ACTIVE", statusReason: null })
+    .where(eq(departments.id, departmentId));
+
+  revalidatePath("/admin/departments");
+  revalidatePath("/manager/dispatch");
+}
+
+export async function archiveDepartment(departmentId: string) {
+  const session = await requireAdmin();
+  const [department] = await db
+    .select({ id: departments.id, status: departments.status })
+    .from(departments)
+    .where(eq(departments.id, departmentId));
+
+  if (!department) {
+    throw new Error("Department not found.");
+  }
+
+  if (department.status === "ARCHIVED") {
+    throw new Error("This department is already archived.");
+  }
+
+  const openTickets = await db
+    .select({ id: tickets.id })
+    .from(tickets)
+    .where(and(eq(tickets.departmentId, departmentId), notInArray(tickets.status, ["RESOLVED", "COMPLETED"])));
+  const now = new Date();
+
   await db.batch([
-    db.update(departments).set({ status: "ARCHIVED", statusReason: "ARCHIVED" }).where(eq(departments.id, departmentId)),
+    db.update(departments).set({ status: "ARCHIVED", statusReason: "ARCHIVED", managerAssignedAt: null }).where(eq(departments.id, departmentId)),
+    db
+      .update(users)
+      .set({ role: "CITIZEN", departmentId: null })
+      .where(and(inArray(users.role, ["MANAGER", "FIELD_WORKER"]), eq(users.departmentId, departmentId))),
     db
       .update(tickets)
-      .set({ routingReviewStatus: "NEEDS_ADMIN_REVIEW", routingCorrectionReason: "ARCHIVED_DEPARTMENT", routingUpdatedAt: new Date() })
+      .set({ assignedCrewId: null, status: "TRIAGED", routingReviewStatus: "NEEDS_ADMIN_REVIEW", routingCorrectionReason: "ARCHIVED_DEPARTMENT", routingUpdatedAt: now, updatedAt: now })
       .where(and(eq(tickets.departmentId, departmentId), notInArray(tickets.status, ["RESOLVED", "COMPLETED"]))),
+    ...openTickets.map((ticket) =>
+      db.insert(ticketEvents).values({
+        id: `event-${crypto.randomUUID()}`,
+        ticketId: ticket.id,
+        eventType: "DEPARTMENT_ARCHIVED",
+        actorId: session.user.id,
+        fromDepartmentId: departmentId,
+        reason: "ARCHIVED_DEPARTMENT",
+        createdAt: now,
+      }),
+    ),
   ]);
 
   revalidatePath("/admin/departments");

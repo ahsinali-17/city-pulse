@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AlertTriangle, Archive, Building2, LockKeyhole, Plus, RotateCcw, ShieldCheck } from "lucide-react";
-import { archiveDepartment, createDepartment, reactivateDepartment, suspendDepartment } from "@/app/admin/departments/actions";
+import { archiveDepartment, createDepartment, reactivateDepartment, suspendDepartment, unsuspendDepartment } from "@/app/admin/departments/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -99,6 +99,12 @@ function DepartmentRow({ department, isPending, run }: { department: Department;
       </div>
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
         {department.status === "ACTIVE" && <Button variant="outline" size="sm" disabled={isPending} onClick={() => run(() => suspendDepartment(department.id))}><LockKeyhole className="mr-1.5 size-3.5" />Suspend</Button>}
+        {department.status === "SUSPENDED" && department.statusReason === "ADMIN_DISABLED" && (
+          <Button variant="outline" size="sm" disabled={isPending} onClick={() => run(() => unsuspendDepartment(department.id))}><RotateCcw className="mr-1.5 size-3.5" />Unsuspend</Button>
+        )}
+        {department.status === "SUSPENDED" && (department.statusReason === "NO_MANAGER" || department.statusReason === "MANAGER_DEACTIVATED") && (
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Appoint a manager</span>
+        )}
         {department.status === "ARCHIVED" && <Button variant="outline" size="sm" disabled={isPending} onClick={() => run(() => reactivateDepartment(department.id))}><RotateCcw className="mr-1.5 size-3.5" />Reactivate</Button>}
         {department.status !== "ARCHIVED" && <Button variant="ghost" size="sm" disabled={isPending} onClick={() => run(() => archiveDepartment(department.id))}><Archive className="mr-1.5 size-3.5" />Archive</Button>}
       </div>

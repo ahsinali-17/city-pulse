@@ -56,7 +56,7 @@ export async function assignTicket(ticketId: string, workerId: string | null) {
       .from(departments)
       .where(eq(departments.id, ticket.departmentId));
 
-    if (!department || department.status !== "ACTIVE") {
+    if (dispatcher.role === "MANAGER" && (!department || department.status !== "ACTIVE")) {
       throw new Error("New assignments are unavailable while this department is suspended or archived.");
     }
 
@@ -95,8 +95,27 @@ export async function overrideTicketSeverity(ticketId: string, severity: number)
     .from(tickets)
     .where(and(eq(tickets.id, ticketId), notInArray(tickets.status, ["RESOLVED", "COMPLETED"])));
 
-  if (!ticket || (dispatcher.role === "MANAGER" && ticket.departmentId !== dispatcher.departmentId)) {
-    throw new Error("You can only update active tickets from your department.");
+  if (!ticket) {
+    throw new Error("This ticket is no longer available for updates.");
+  }
+
+  if (dispatcher.role === "MANAGER") {
+    if (ticket.departmentId !== dispatcher.departmentId) {
+      throw new Error("You can only update active tickets from your department.");
+    }
+
+    if (!ticket.departmentId) {
+      throw new Error("Severity updates require a valid department assignment.");
+    }
+
+    const [department] = await db
+      .select({ status: departments.status })
+      .from(departments)
+      .where(eq(departments.id, ticket.departmentId));
+
+    if (!department || department.status !== "ACTIVE") {
+      throw new Error("Severity updates are unavailable while this department is suspended or archived.");
+    }
   }
 
   await db

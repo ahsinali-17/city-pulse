@@ -28,6 +28,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TicketPageProps {
@@ -85,6 +86,7 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
       aiAnalysis: tickets.aiAnalysis,
       timeline: tickets.timeline,
       assignedDepartment: departments.name,
+      departmentStatus: departments.status,
       assignedCrew: users.name,
     })
     .from(tickets)
@@ -141,6 +143,15 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
             </Button>
           </div>
         </div>
+
+        {ticket.departmentStatus === "SUSPENDED" && (ticket.status === "REPORTED" || ticket.status === "TRIAGED") && (
+          <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-50">
+            <AlertTriangle className="size-4 text-amber-700 dark:text-amber-300" />
+            <AlertDescription className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Department updates in progress. Ticket processing is temporarily paused, but your place in line is saved.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Status Progress Tracker Banner */}
         <Card className="border-slate-200 dark:border-slate-800 shadow-xs bg-linear-to-r from-slate-900 via-slate-850 to-blue-950 text-white overflow-hidden">

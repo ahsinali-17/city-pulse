@@ -85,6 +85,7 @@ async function DispatchData() {
       }))}
       workers={workers}
       departments={departmentRows}
+      isAdmin={session.user.role === "ADMIN"}
     />
   );
 }
