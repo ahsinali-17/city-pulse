@@ -44,12 +44,43 @@ export async function createDepartment(name: string, description: string) {
 }
 
 export async function suspendDepartment(departmentId: string) {
-  await requireAdmin();
-
-  await db
-    .update(departments)
-    .set({ status: "SUSPENDED", statusReason: "ADMIN_DISABLED" })
+  const session = await requireAdmin();
+  const [department] = await db
+    .select({ status: departments.status })
+    .from(departments)
     .where(eq(departments.id, departmentId));
+
+  if (!department) {
+    throw new Error("Department not found.");
+  }
+
+  if (department.status === "SUSPENDED") {
+    throw new Error("This department is already suspended.");
+  }
+
+  const openTickets = await db
+    .select({ id: tickets.id })
+    .from(tickets)
+    .where(and(eq(tickets.departmentId, departmentId), notInArray(tickets.status, ["RESOLVED", "COMPLETED"])));
+  const now = new Date();
+
+  await db.batch([
+    db
+      .update(departments)
+      .set({ status: "SUSPENDED", statusReason: "ADMIN_DISABLED" })
+      .where(eq(departments.id, departmentId)),
+    ...openTickets.map((ticket) =>
+      db.insert(ticketEvents).values({
+        id: `event-${crypto.randomUUID()}`,
+        ticketId: ticket.id,
+        eventType: "DEPARTMENT_SUSPENDED",
+        actorId: session.user.id,
+        fromDepartmentId: departmentId,
+        reason: "ADMIN_DISABLED",
+        createdAt: now,
+      }),
+    ),
+  ]);
 
   revalidatePath("/admin/departments");
   revalidatePath("/manager/dispatch");

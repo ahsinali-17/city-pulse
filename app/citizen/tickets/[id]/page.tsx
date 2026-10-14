@@ -148,7 +148,7 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
           <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-50">
             <AlertTriangle className="size-4 text-amber-700 dark:text-amber-300" />
             <AlertDescription className="text-sm font-medium text-amber-900 dark:text-amber-100">
-              Department updates in progress. Ticket processing is temporarily paused, but your place in line is saved.
+              {ticket.assignedDepartment || "This department"} is currently undergoing service updates. Your ticket has been noted and will be attended to as soon as operations resume.
             </AlertDescription>
           </Alert>
         )}

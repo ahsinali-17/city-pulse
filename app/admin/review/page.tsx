@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { departments } from "@/lib/db/schema/departments";
 import { tickets } from "@/lib/db/schema/tickets";
-import { and, asc, desc, eq, lt, notInArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, ne, notInArray, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { AdminReviewDashboard } from "@/components/admin/review-dashboard";
 
@@ -26,7 +26,12 @@ export default async function AdminReviewPage() {
       })
       .from(tickets)
       .leftJoin(departments, eq(tickets.departmentId, departments.id))
-      .where(and(eq(departments.status, "SUSPENDED"), notInArray(tickets.status, ["RESOLVED", "COMPLETED"])))
+      .where(and(
+        eq(departments.status, "SUSPENDED"),
+        isNull(tickets.assignedCrewId),
+        or(isNull(tickets.routingCorrectionReason), ne(tickets.routingCorrectionReason, "SUSPENDED_DEPARTMENT")),
+        notInArray(tickets.status, ["RESOLVED", "COMPLETED"]),
+      ))
       .orderBy(desc(tickets.createdAt)),
     db
       .select({
@@ -46,13 +51,20 @@ export default async function AdminReviewPage() {
         title: tickets.title,
         status: tickets.status,
         priority: tickets.priority,
+        departmentId: tickets.departmentId,
         department: departments.name,
         imageUrl: tickets.imageUrl,
         aiConfidence: tickets.aiConfidence,
+        routingCorrectionReason: tickets.routingCorrectionReason,
+        routingSource: tickets.routingSource,
       })
       .from(tickets)
       .leftJoin(departments, eq(tickets.departmentId, departments.id))
-      .where(or(eq(tickets.routingReviewStatus, "NEEDS_ADMIN_REVIEW"), lt(tickets.aiConfidence, 0.4)))
+      .where(and(
+        eq(departments.status, "ACTIVE"),
+        notInArray(tickets.status, ["RESOLVED", "COMPLETED"]),
+        or(eq(tickets.routingReviewStatus, "NEEDS_ADMIN_REVIEW"), lt(tickets.aiConfidence, 0.4)),
+      ))
       .orderBy(desc(tickets.createdAt)),
     db
       .select({ id: departments.id, name: departments.name })
@@ -85,9 +97,12 @@ export default async function AdminReviewPage() {
     department: ticket.department ?? "Unassigned",
     status: ticket.status,
     priority: ticket.priority ?? "NORMAL",
+    departmentId: ticket.departmentId,
     eta: "Needs route correction",
     imageUrl: ticket.imageUrl,
     aiConfidence: ticket.aiConfidence,
+    reviewReason: ticket.routingCorrectionReason,
+    reviewSource: ticket.routingSource,
   }));
 
   return (

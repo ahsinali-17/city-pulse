@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { departments } from "@/lib/db/schema/departments";
 import { tickets } from "@/lib/db/schema/tickets";
 import { users } from "@/lib/db/schema/users";
-import { and, desc, eq, notInArray } from "drizzle-orm";
+import { and, desc, eq, isNull, notInArray, or, ne } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,6 +46,9 @@ async function DispatchData() {
       .where(and(
         notInArray(tickets.status, ["RESOLVED", "COMPLETED"]),
         departmentScope ?? undefined,
+        session.user.role === "MANAGER"
+          ? or(isNull(tickets.routingReviewStatus), ne(tickets.routingReviewStatus, "NEEDS_ADMIN_REVIEW"))
+          : undefined,
       ))
       .orderBy(desc(tickets.createdAt)),
     db

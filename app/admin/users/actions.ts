@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import { departments } from "@/lib/db/schema/departments";
+import { ticketEvents } from "@/lib/db/schema/ticket-events";
 import { tickets } from "@/lib/db/schema/tickets";
 import { getAllowedRoleTransitions, isDepartmentAssignmentAllowed, type UserRole } from "@/lib/admin/role-validation";
 import { and, eq, notInArray } from "drizzle-orm";
@@ -18,17 +19,41 @@ async function requireAdmin() {
   return session;
 }
 
-async function suspendIfManagerless(departmentId: string) {
+async function suspendIfManagerless(departmentId: string, actorId: string) {
   const remainingManagers = await db
     .select({ id: users.id })
     .from(users)
     .where(and(eq(users.role, "MANAGER"), eq(users.departmentId, departmentId), eq(users.isActive, true)));
 
-  if (remainingManagers.length === 0) {
-    await db
-      .update(departments)
-      .set({ status: "SUSPENDED", statusReason: "MANAGER_DEACTIVATED", managerAssignedAt: null })
-      .where(eq(departments.id, departmentId));
+  const [department] = await db
+    .select({ status: departments.status })
+    .from(departments)
+    .where(eq(departments.id, departmentId));
+
+  if (remainingManagers.length === 0 && department?.status === "ACTIVE") {
+    const openTickets = await db
+      .select({ id: tickets.id })
+      .from(tickets)
+      .where(and(eq(tickets.departmentId, departmentId), notInArray(tickets.status, ["RESOLVED", "COMPLETED"])));
+    const now = new Date();
+
+    await db.batch([
+      db
+        .update(departments)
+        .set({ status: "SUSPENDED", statusReason: "MANAGER_DEACTIVATED", managerAssignedAt: null })
+        .where(eq(departments.id, departmentId)),
+      ...openTickets.map((ticket) =>
+        db.insert(ticketEvents).values({
+          id: `event-${crypto.randomUUID()}`,
+          ticketId: ticket.id,
+          eventType: "DEPARTMENT_SUSPENDED",
+          actorId,
+          fromDepartmentId: departmentId,
+          reason: "MANAGER_DEACTIVATED",
+          createdAt: now,
+        }),
+      ),
+    ]);
   }
 }
 
@@ -108,7 +133,7 @@ export async function updateUserRole(
   await db.update(users).set(updates).where(eq(users.id, userId));
 
   if (currentUser.role === "MANAGER" && newRole !== "MANAGER" && oldDepartmentId) {
-    await suspendIfManagerless(oldDepartmentId);
+    await suspendIfManagerless(oldDepartmentId, session.user.id);
   }
 
   if (newRole === "MANAGER" && oldDepartmentId) {
@@ -128,7 +153,7 @@ export async function updateUserDepartment(
   userId: string,
   departmentId: string | null
 ) {
-  await requireAdmin();
+  const session = await requireAdmin();
 
   const [currentUser] = await db
     .select({ role: users.role, departmentId: users.departmentId })
@@ -195,7 +220,7 @@ export async function updateUserDepartment(
     .where(eq(users.id, userId));
 
   if (currentUser.role === "MANAGER" && previousDepartmentId && previousDepartmentId !== departmentId) {
-    await suspendIfManagerless(previousDepartmentId);
+    await suspendIfManagerless(previousDepartmentId, session.user.id);
   }
 
   if (currentUser.role === "MANAGER" && departmentId) {
@@ -251,7 +276,7 @@ export async function deleteUser(userId: string) {
   await db.delete(users).where(eq(users.id, userId));
 
   if (user.role === "MANAGER" && user.departmentId) {
-    await suspendIfManagerless(user.departmentId);
+    await suspendIfManagerless(user.departmentId, session.user.id);
   }
 
   revalidatePath("/admin/users");

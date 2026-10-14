@@ -2,6 +2,7 @@
 
 import { auth } from "@/auth";
 import { departments } from "@/lib/db/schema/departments";
+import { ticketEvents } from "@/lib/db/schema/ticket-events";
 import { db } from "@/lib/db";
 import { tickets } from "@/lib/db/schema/tickets";
 import { users } from "@/lib/db/schema/users";
@@ -15,7 +16,7 @@ async function requireDispatcher() {
   }
 
   const [currentUser] = await db
-    .select({ role: users.role, departmentId: users.departmentId, isActive: users.isActive })
+    .select({ id: users.id, role: users.role, departmentId: users.departmentId, isActive: users.isActive })
     .from(users)
     .where(eq(users.id, session.user.id));
 
@@ -75,12 +76,16 @@ export async function assignTicket(ticketId: string, workerId: string | null) {
     .set({
       assignedCrewId: workerId,
       status: workerId ? "DISPATCHED" : "TRIAGED",
+      ...(dispatcher.role === "ADMIN" && workerId
+        ? { routingReviewStatus: "RESOLVED" as const, routingCorrectionReason: "ADMIN_DISPATCH" }
+        : {}),
       updatedAt: new Date(),
     })
     .where(eq(tickets.id, ticketId));
 
   revalidatePath("/manager/dispatch");
   revalidatePath("/field");
+  revalidatePath("/admin/review");
 }
 
 export async function overrideTicketSeverity(ticketId: string, severity: number) {
@@ -125,4 +130,61 @@ export async function overrideTicketSeverity(ticketId: string, severity: number)
 
   revalidatePath("/manager/dispatch");
   revalidatePath("/manager/map");
+}
+
+export async function requestTicketAdminReview(ticketId: string) {
+  const dispatcher = await requireDispatcher();
+
+  if (dispatcher.role !== "MANAGER" || !dispatcher.departmentId) {
+    throw new Error("Only the assigned department manager can request admin review.");
+  }
+
+  const [ticket] = await db
+    .select({
+      departmentId: tickets.departmentId,
+      assignedCrewId: tickets.assignedCrewId,
+      status: tickets.status,
+      departmentStatus: departments.status,
+      routingReviewStatus: tickets.routingReviewStatus,
+    })
+    .from(tickets)
+    .leftJoin(departments, eq(tickets.departmentId, departments.id))
+    .where(and(eq(tickets.id, ticketId), notInArray(tickets.status, ["RESOLVED", "COMPLETED"])));
+
+  if (!ticket || ticket.departmentId !== dispatcher.departmentId) {
+    throw new Error("You can only escalate tickets from your department.");
+  }
+
+  if (ticket.departmentStatus !== "ACTIVE" || ticket.assignedCrewId || !["REPORTED", "TRIAGED"].includes(ticket.status)) {
+    throw new Error("Only unassigned new tickets from an active department can be sent for admin review.");
+  }
+
+  if (ticket.routingReviewStatus === "NEEDS_ADMIN_REVIEW") {
+    throw new Error("This ticket is already waiting for admin review.");
+  }
+
+  const now = new Date();
+  await db.batch([
+    db
+      .update(tickets)
+      .set({
+        routingReviewStatus: "NEEDS_ADMIN_REVIEW",
+        routingCorrectionReason: "MANAGER_ESCALATION",
+        routingUpdatedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(tickets.id, ticketId)),
+    db.insert(ticketEvents).values({
+      id: `event-${crypto.randomUUID()}`,
+      ticketId,
+      eventType: "ROUTING_CORRECTION_REQUESTED",
+      actorId: dispatcher.id,
+      fromDepartmentId: dispatcher.departmentId,
+      reason: "MANAGER_ESCALATION",
+      createdAt: now,
+    }),
+  ]);
+
+  revalidatePath("/manager/dispatch");
+  revalidatePath("/admin/review");
 }

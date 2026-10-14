@@ -47,6 +47,40 @@ async function getActiveDepartment(departmentId: string) {
   return department;
 }
 
+export async function freezeAndNotifyTicket(ticketId: string) {
+  await requireAdmin();
+  const ticket = await getOpenTicket(ticketId);
+
+  if (!ticket.departmentId) {
+    throw new Error("This ticket has no department to freeze.");
+  }
+
+  const [department] = await db
+    .select({ status: departments.status })
+    .from(departments)
+    .where(eq(departments.id, ticket.departmentId));
+
+  if (!department || department.status !== "SUSPENDED") {
+    throw new Error("Freeze and notify is only available for suspended departments.");
+  }
+
+  const now = new Date();
+  await db.batch([
+    db
+      .update(tickets)
+      .set({
+        routingReviewStatus: "NEEDS_ADMIN_REVIEW",
+        routingCorrectionReason: "SUSPENDED_DEPARTMENT",
+        routingUpdatedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(tickets.id, ticketId)),
+  ]);
+
+  revalidatePath("/admin/review");
+  revalidatePath("/manager/dispatch");
+}
+
 export async function assignTicketDepartment(ticketId: string, departmentId: string) {
   const actorId = await requireAdmin();
   const ticket = await getOpenTicket(ticketId);
@@ -89,6 +123,42 @@ export async function assignTicketDepartment(ticketId: string, departmentId: str
   revalidatePath("/admin/review");
   revalidatePath("/manager/dispatch");
   revalidatePath("/manager/map");
+}
+
+export async function returnTicketToManager(ticketId: string) {
+  const actorId = await requireAdmin();
+  const ticket = await getOpenTicket(ticketId);
+
+  if (!ticket.departmentId) {
+    throw new Error("This ticket has no department to return to.");
+  }
+
+  const now = new Date();
+  await db.batch([
+    db
+      .update(tickets)
+      .set({
+        routingSource: "ADMIN",
+        routingReviewStatus: "RESOLVED",
+        routingCorrectionReason: "ADMIN_RETURNED_TO_MANAGER",
+        routingUpdatedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(tickets.id, ticketId)),
+    db.insert(ticketEvents).values({
+      id: `event-${crypto.randomUUID()}`,
+      ticketId,
+      eventType: "ROUTING_CORRECTED",
+      actorId,
+      fromDepartmentId: ticket.departmentId,
+      toDepartmentId: ticket.departmentId,
+      reason: "ADMIN_RETURNED_TO_MANAGER",
+      createdAt: now,
+    }),
+  ]);
+
+  revalidatePath("/admin/review");
+  revalidatePath("/manager/dispatch");
 }
 
 export async function bulkAssignTicketDepartments(assignments: Array<{ ticketId: string; departmentId: string }>) {

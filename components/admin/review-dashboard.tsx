@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   Dialog,
   DialogContent,
+  DialogClose,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -28,17 +29,20 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { assignTicketDepartment, bulkAssignTicketDepartments, correctTicketRoute } from "@/app/admin/review/actions";
+import { assignTicketDepartment, bulkAssignTicketDepartments, correctTicketRoute, freezeAndNotifyTicket, returnTicketToManager } from "@/app/admin/review/actions";
 
 type ReviewTicket = {
   id: string;
   title: string;
   department: string;
+  departmentId?: string | null;
   status: string;
   priority: string;
   eta: string;
   imageUrl?: string | null;
   aiConfidence?: number | null;
+  reviewReason?: string | null;
+  reviewSource?: string | null;
 };
 
 type ReviewDepartment = { id: string; name: string };
@@ -198,8 +202,18 @@ export function AdminReviewDashboard({
                             </DialogDescription>
                           </DialogHeader>
                           <DialogFooter>
-                            <Button variant="outline">Cancel</Button>
-                            <Button className="bg-amber-600 text-white hover:bg-amber-700">Confirm Freeze</Button>
+                            <DialogClose render={<Button variant="outline">Cancel</Button>} />
+                            <DialogClose
+                              render={
+                                <Button
+                                  className="bg-amber-600 text-white hover:bg-amber-700"
+                                  disabled={isPending}
+                                  onClick={() => runAction(ticket.id, () => freezeAndNotifyTicket(ticket.id))}
+                                >
+                                  {pendingTicketId === ticket.id ? "Freezing..." : "Confirm Freeze"}
+                                </Button>
+                              }
+                            />
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
@@ -318,7 +332,10 @@ export function AdminReviewDashboard({
                       </div>
                       <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{ticket.title}</h3>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                        <span>AI confidence {ticket.aiConfidence?.toFixed(2) ?? "n/a"}</span>
+                        <Badge variant="outline" className="border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-200">
+                          {ticket.reviewReason === "MANAGER_ESCALATION" ? "Manager escalation" : "AI routing review"}
+                        </Badge>
+                        {ticket.aiConfidence !== null && ticket.aiConfidence !== undefined && <span>AI confidence {ticket.aiConfidence.toFixed(2)}</span>}
                         <span>•</span>
                         <span>{ticket.priority} priority</span>
                       </div>
@@ -342,9 +359,6 @@ export function AdminReviewDashboard({
                             <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
                               <img src={ticket.imageUrl} alt={ticket.title} className="h-105 w-full object-cover" />
                             </div>
-                            <DialogFooter>
-                              <Button variant="outline">Close</Button>
-                            </DialogFooter>
                           </DialogContent>
                         </Dialog>
                       )}
@@ -368,9 +382,18 @@ export function AdminReviewDashboard({
                       <Button
                         className="bg-violet-600 text-white hover:bg-violet-700"
                         disabled={isPending || !aiSelection[ticket.id]}
-                        onClick={() => runAction(ticket.id, () => correctTicketRoute(ticket.id, aiSelection[ticket.id]))}
+                        onClick={() => runAction(
+                          ticket.id,
+                          () => aiSelection[ticket.id] === ticket.departmentId
+                            ? returnTicketToManager(ticket.id)
+                            : correctTicketRoute(ticket.id, aiSelection[ticket.id]),
+                        )}
                       >
-                        {pendingTicketId === ticket.id ? "Saving..." : "Confirm Route"}
+                        {pendingTicketId === ticket.id
+                          ? "Saving..."
+                          : aiSelection[ticket.id] === ticket.departmentId
+                            ? "Return to Manager"
+                            : "Confirm Route"}
                       </Button>
                     </div>
                   </div>
