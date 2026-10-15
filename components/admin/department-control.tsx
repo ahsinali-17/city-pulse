@@ -73,8 +73,8 @@ export function DepartmentControl({ departments, availableWorkers }: { departmen
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-[1fr_1.5fr_auto]">
           <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Department name" disabled={isPending} />
-          <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Responsibility description" disabled={isPending} />
-          <Button onClick={handleCreate} disabled={isPending || !name.trim()}><Plus className="mr-1.5 size-4" />Create</Button>
+          <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Responsibility description (required)" disabled={isPending} required />
+          <Button onClick={handleCreate} disabled={isPending || !name.trim() || description.trim().length < 10}><Plus className="mr-1.5 size-4" />Create</Button>
         </CardContent>
       </Card>
 

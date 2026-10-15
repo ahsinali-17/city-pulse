@@ -63,6 +63,8 @@ export default function SubmitHazardPage() {
   const [title, setTitle] = useState<string>("High Pressure Water Main Burst on Elm St");
   const [severity, setSeverity] = useState<number>(5);
   const [confidence, setConfidence] = useState<number>(97.4);
+  const [aiExplanation, setAiExplanation] = useState<string>("AI assessment is ready for review.");
+  const [suggestedDepartmentId, setSuggestedDepartmentId] = useState<string | null>("dept-water");
   const [description, setDescription] = useState<string>(
     "Water gushing from asphalt near sewer grate, causing road erosion and flooding sidewalk."
   );
@@ -86,6 +88,8 @@ export default function SubmitHazardPage() {
         setTitle(data.title);
         setSeverity(data.severity);
         setConfidence(data.confidence);
+        setAiExplanation(data.explanation || "AI assessment is ready for review.");
+        setSuggestedDepartmentId(data.departmentId ?? null);
       }
     } catch (err) {
       console.error(err);
@@ -141,7 +145,16 @@ export default function SubmitHazardPage() {
         imageUrl: selectedPhoto,
         address: location,
         lat,
-        lng
+        lng,
+        aiConfidence: confidence,
+        aiSuggestedDepartmentId: suggestedDepartmentId,
+        aiAnalysis: {
+          detectedCategory: category,
+          title,
+          severityScore: severity,
+          confidenceScore: confidence,
+          explanation: aiExplanation,
+        },
       });
       router.push("/citizen/tickets");
     } catch (err) {
@@ -354,7 +367,6 @@ export default function SubmitHazardPage() {
                     onChange={(e) => setCoordinates(e.target.value)}
                     placeholder="40.7128, -74.0060"
                     className="text-xs font-mono bg-slate-50 dark:bg-slate-900"
-                    readOnly
                   />
                 </div>
               </CardContent>

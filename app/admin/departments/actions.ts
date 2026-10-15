@@ -22,8 +22,13 @@ export async function createDepartment(name: string, description: string) {
   await requireAdmin();
 
   const trimmedName = name.trim();
+  const trimmedDescription = description.trim();
   if (trimmedName.length < 2) {
     throw new Error("Department name must be at least 2 characters.");
+  }
+
+  if (trimmedDescription.length < 10) {
+    throw new Error("Department responsibility description must be at least 10 characters.");
   }
 
   const id = `dept-${trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
@@ -35,7 +40,7 @@ export async function createDepartment(name: string, description: string) {
   await db.insert(departments).values({
     id,
     name: trimmedName,
-    description: description.trim() || null,
+    description: trimmedDescription,
     status: "SUSPENDED",
     statusReason: "NO_MANAGER",
   });

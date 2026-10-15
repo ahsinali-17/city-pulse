@@ -61,9 +61,10 @@ export default async function AdminReviewPage() {
       .from(tickets)
       .leftJoin(departments, eq(tickets.departmentId, departments.id))
       .where(and(
-        eq(departments.status, "ACTIVE"),
+        or(isNull(departments.id), eq(departments.status, "ACTIVE")),
         notInArray(tickets.status, ["RESOLVED", "COMPLETED"]),
-        or(eq(tickets.routingReviewStatus, "NEEDS_ADMIN_REVIEW"), lt(tickets.aiConfidence, 0.4)),
+        ne(tickets.routingReviewStatus, "RESOLVED"),
+        or(eq(tickets.routingReviewStatus, "NEEDS_ADMIN_REVIEW"), lt(tickets.aiConfidence, 40)),
       ))
       .orderBy(desc(tickets.createdAt)),
     db

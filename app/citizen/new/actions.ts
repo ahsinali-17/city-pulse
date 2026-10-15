@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { departments } from "@/lib/db/schema/departments";
 import { tickets } from "@/lib/db/schema/tickets";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 
@@ -16,6 +16,9 @@ export async function submitTicketAction(data: {
   address: string;
   lat: number;
   lng: number;
+  aiConfidence: number;
+  aiAnalysis: Record<string, unknown>;
+  aiSuggestedDepartmentId: string | null;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -24,13 +27,24 @@ export async function submitTicketAction(data: {
 
   const newId = `HAZ-${Math.floor(10000 + Math.random() * 90000)}`;
   
-  // Assign department based on category
-  const departmentId = data.category === "Water Leak" ? "dept-water" : "dept-roads";
-  const [department] = await db
-    .select({ status: departments.status })
-    .from(departments)
-    .where(eq(departments.id, departmentId));
-  const departmentAvailable = department?.status === "ACTIVE";
+  const confidence = Math.max(0, Math.min(100, data.aiConfidence));
+  const [department] = data.aiSuggestedDepartmentId
+    ? await db
+      .select({ id: departments.id, status: departments.status })
+      .from(departments)
+      .where(and(
+        eq(departments.id, data.aiSuggestedDepartmentId),
+        inArray(departments.status, ["ACTIVE", "SUSPENDED"]),
+      ))
+    : [];
+  const departmentId = department?.id ?? null;
+  const routingCorrectionReason = !departmentId
+    ? "AI_NO_DEPARTMENT_MATCH"
+    : department.status === "SUSPENDED"
+      ? "DEPARTMENT_UNAVAILABLE"
+      : confidence < 40
+        ? "LOW_AI_CONFIDENCE"
+        : null;
   
   // Calculate priority based on severity
   const priority = data.severity === 5 ? "URGENT" : data.severity === 4 ? "HIGH" : data.severity === 3 ? "NORMAL" : "LOW";
@@ -49,9 +63,13 @@ export async function submitTicketAction(data: {
     status: "REPORTED",
     reporterId: session.user.id,
     departmentId: departmentId,
-    routingReviewStatus: departmentAvailable ? "NONE" : "NEEDS_ADMIN_REVIEW",
-    routingCorrectionReason: departmentAvailable ? null : "DEPARTMENT_UNAVAILABLE",
-    routingUpdatedAt: departmentAvailable ? null : new Date(),
+    aiAnalysis: data.aiAnalysis,
+    aiConfidence: confidence,
+    aiSuggestedDepartmentId: department?.id ?? null,
+    routingSource: "AI",
+    routingReviewStatus: routingCorrectionReason ? "NEEDS_ADMIN_REVIEW" : "NONE",
+    routingCorrectionReason,
+    routingUpdatedAt: routingCorrectionReason ? new Date() : null,
   });
 
   revalidatePath("/citizen/tickets");

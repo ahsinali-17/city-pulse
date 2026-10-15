@@ -34,3 +34,13 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+So the final work list is:
+
+Citizen ticket deletion — Server Action + delete button with confirmation
+AI detailed description — use explanation from Gemini response to auto-fill form field "detailed description".
+Real GPS detection — navigator.geolocation + Nominatim reverse geocode
+Fix ticket detail auth — Verify citizen ownership
+Personal map view for citizens/workers — Show only their tickets/tasks on a map
+fix ghost Share & PDF buttons
+Role-filter sidebar nav — Show only relevant sections per role
