@@ -1,6 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { TicketDetailActions } from "@/components/citizen/ticket-detail-actions";
+import { TicketMapDialog } from "@/components/citizen/ticket-map-dialog";
 import {
   Ticket,
   MapPin,
@@ -9,8 +12,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowLeft,
-  Share2,
-  Download,
   Building2,
   HardHat,
   User,
@@ -68,12 +69,19 @@ function TicketDetailSkeleton() {
 }
 
 export default async function CitizenTicketPage({ params }: TicketPageProps) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
   const resolvedParams = await params;
   const ticketId = resolvedParams.id;
   
   const [ticket] = await db
     .select({
       id: tickets.id,
+      userId: tickets.reporterId,
+      reporterId: tickets.reporterId,
       title: tickets.title,
       category: tickets.category,
       description: tickets.description,
@@ -81,6 +89,8 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
       createdAt: tickets.createdAt,
       imageUrl: tickets.imageUrl,
       address: tickets.address,
+      lat: tickets.lat,
+      lng: tickets.lng,
       severity: tickets.severity,
       priority: tickets.priority,
       aiAnalysis: tickets.aiAnalysis,
@@ -94,8 +104,8 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
     .leftJoin(users, eq(tickets.assignedCrewId, users.id))
     .where(eq(tickets.id, ticketId));
 
-  if (!ticket) {
-    notFound();
+  if (!ticket || ticket.userId !== session.user.id) {
+    redirect("/citizen/tickets?error=unauthorized");
   }
 
   const progress = getTicketProgress(ticket.status);
@@ -134,14 +144,7 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <Button variant="outline" size="sm" className="text-xs gap-1.5">
-              <Share2 className="size-3.5" /> Share
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs gap-1.5">
-              <Download className="size-3.5" /> Audit PDF
-            </Button>
-          </div>
+          <TicketDetailActions ticket={ticket} />
         </div>
 
         {ticket.departmentStatus === "SUSPENDED" && (ticket.status === "REPORTED" || ticket.status === "TRIAGED") && (
@@ -340,11 +343,7 @@ export default async function CitizenTicketPage({ params }: TicketPageProps) {
                   </div>
                 </div>
 
-                <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 mt-2">
-                  <Link className="flex items-center gap-2" href="/manager/map">
-                    <ExternalLink className="size-3.5" /> View on GIS Map
-                  </Link>
-                </Button>
+                <TicketMapDialog ticket={ticket} />
               </CardContent>
             </Card>
           </div>

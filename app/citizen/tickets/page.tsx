@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { tickets } from "@/lib/db/schema/tickets";
@@ -8,6 +9,7 @@ import { Ticket, Plus, MapPin, Activity, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TicketListToastHandler } from "@/components/citizen/ticket-list-toast-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,9 @@ export default async function CitizenTicketsListPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
+      <Suspense fallback={null}>
+        <TicketListToastHandler />
+      </Suspense>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { CheckCircle2, HardHat, RefreshCw, WifiOff, CloudUpload } from "lucide-react";
 import { type FieldTask } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FieldTaskCard } from "./field-task-card";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
@@ -14,6 +16,12 @@ import {
   clearPendingSyncItem,
 } from "@/lib/db/offline";
 import { updateTicketState } from "@/app/field/actions";
+import { cn } from "@/lib/utils";
+
+const DynamicFieldTaskMap = dynamic(() => import("./field-task-map"), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-105 rounded-xl" />,
+});
 
 interface FieldTaskListProps {
   initialTasks: FieldTask[];
@@ -22,6 +30,7 @@ interface FieldTaskListProps {
 export function FieldTaskList({ initialTasks }: FieldTaskListProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   // Live query from Dexie IndexedDB
   const cachedTasks = useLiveQuery(
@@ -134,17 +143,47 @@ export function FieldTaskList({ initialTasks }: FieldTaskListProps) {
       </div>
 
       <Tabs defaultValue="active">
-        <div className="flex items-center justify-between gap-3">
-          <TabsList className="h-9">
-            <TabsTrigger value="active" className="text-xs gap-1.5">
-              <HardHat className="size-3.5" />
-              Active ({activeTasks.length})
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="text-xs gap-1.5">
-              <CheckCircle2 className="size-3.5" />
-              Done ({completedTasks.length})
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <TabsList className="h-9">
+              <TabsTrigger value="active" className="text-xs gap-1.5">
+                <HardHat className="size-3.5" />
+                Active ({activeTasks.length})
+              </TabsTrigger>
+              <TabsTrigger value="completed" className="text-xs gap-1.5">
+                <CheckCircle2 className="size-3.5" />
+                Done ({completedTasks.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Segmented view toggle: [ 📋 List | 🗺️ Map ] */}
+            <div className="flex items-center p-0.5 rounded-lg bg-slate-200/80 dark:bg-slate-800 border border-slate-300/80 dark:border-slate-700 h-9">
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer",
+                  viewMode === "list"
+                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs font-semibold"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                )}
+              >
+                <span>📋</span> List
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("map")}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer",
+                  viewMode === "map"
+                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs font-semibold"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                )}
+              >
+                <span>🗺️</span> Map
+              </button>
+            </div>
+          </div>
 
           <Button
             variant="outline"
@@ -160,31 +199,39 @@ export function FieldTaskList({ initialTasks }: FieldTaskListProps) {
           </Button>
         </div>
 
-        <TabsContent value="active" className="space-y-3 mt-4">
-          {activeTasks.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">
-              <CheckCircle2 className="size-8 mx-auto text-emerald-400 mb-2" />
-              <p className="font-semibold">All tasks completed!</p>
-              <p className="text-xs mt-1">Great work. Sync to upload changes.</p>
-            </div>
-          ) : (
-            activeTasks.map((t) => (
-              <FieldTaskCard key={t.id} task={t} isOnline={isOnline} />
-            ))
-          )}
-        </TabsContent>
+        {viewMode === "map" ? (
+          <div className="mt-4">
+            <DynamicFieldTaskMap tasks={tasksToDisplay} />
+          </div>
+        ) : (
+          <>
+            <TabsContent value="active" className="space-y-3 mt-4">
+              {activeTasks.length === 0 ? (
+                <div className="text-center py-12 text-sm text-muted-foreground">
+                  <CheckCircle2 className="size-8 mx-auto text-emerald-400 mb-2" />
+                  <p className="font-semibold">All tasks completed!</p>
+                  <p className="text-xs mt-1">Great work. Sync to upload changes.</p>
+                </div>
+              ) : (
+                activeTasks.map((t) => (
+                  <FieldTaskCard key={t.id} task={t} isOnline={isOnline} />
+                ))
+              )}
+            </TabsContent>
 
-        <TabsContent value="completed" className="space-y-3 mt-4">
-          {completedTasks.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">
-              No completed tasks yet.
-            </div>
-          ) : (
-            completedTasks.map((t) => (
-              <FieldTaskCard key={t.id} task={t} isOnline={isOnline} />
-            ))
-          )}
-        </TabsContent>
+            <TabsContent value="completed" className="space-y-3 mt-4">
+              {completedTasks.length === 0 ? (
+                <div className="text-center py-12 text-sm text-muted-foreground">
+                  No completed tasks yet.
+                </div>
+              ) : (
+                completedTasks.map((t) => (
+                  <FieldTaskCard key={t.id} task={t} isOnline={isOnline} />
+                ))
+              )}
+            </TabsContent>
+          </>
+        )}
       </Tabs>
     </div>
   );

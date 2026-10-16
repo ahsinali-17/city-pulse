@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { submitTicketAction } from "./actions";
@@ -69,9 +69,13 @@ export default function SubmitHazardPage() {
     "Water gushing from asphalt near sewer grate, causing road erosion and flooding sidewalk."
   );
   const [location, setLocation] = useState<string>("452 Elm Street, Downtown Metroville");
-  const [coordinates, setCoordinates] = useState<string>("40.7128, -74.0060");
+  const [latitude, setLatitude] = useState<number | null>(40.7128);
+  const [longitude, setLongitude] = useState<number | null>(-74.0060);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const isSettingFromGpsRef = useRef(false);
+  const initialRenderRef = useRef(true);
 
   const runAiTriage = async (imageUrl: string = "", imageBase64: string = "") => {
     setIsScanning(true);
@@ -90,6 +94,9 @@ export default function SubmitHazardPage() {
         setConfidence(data.confidence);
         setAiExplanation(data.explanation || "AI assessment is ready for review.");
         setSuggestedDepartmentId(data.departmentId ?? null);
+        if (data.explanation) {
+          setDescription(data.explanation);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -112,29 +119,99 @@ export default function SubmitHazardPage() {
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       setSelectedPhoto(base64);
-      runAiTriage("",base64);
+      runAiTriage("", base64);
     };
     reader.readAsDataURL(file);
   };
 
   const handleDetectGPS = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
     setIsLocating(true);
-    setTimeout(() => {
-      setIsLocating(false);
-      setLocation("452 Elm Street, Metroville (GPS Verified)");
-      setCoordinates("40.7128° N, 74.0060° W");
-    }, 1000);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        setLatitude(lat);
+        setLongitude(lon);
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+            {
+              headers: {
+                "User-Agent": "CityPulse-Triage-App",
+              },
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (data.display_name) {
+              isSettingFromGpsRef.current = true;
+              setLocation(data.display_name);
+            }
+          }
+        } catch (err) {
+          console.error("Reverse geocoding error:", err);
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
-  const handleSubmit = async (e: React.SubmitEvent) => {
+  // 500ms debounced forward geocoding on address input
+  useEffect(() => {
+    if (initialRenderRef.current) {
+      initialRenderRef.current = false;
+      return;
+    }
+    if (isSettingFromGpsRef.current) {
+      isSettingFromGpsRef.current = false;
+      return;
+    }
+    if (!location.trim()) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location.trim())}&format=json&limit=1`,
+          {
+            headers: {
+              "User-Agent": "CityPulse-Triage-App",
+            },
+          }
+        );
+        if (res.ok) {
+          const results = await res.json();
+          if (Array.isArray(results) && results.length > 0) {
+            const topResult = results[0];
+            if (topResult.lat && topResult.lon) {
+              setLatitude(parseFloat(topResult.lat));
+              setLongitude(parseFloat(topResult.lon));
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Forward geocoding error:", err);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [location]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Parse coordinates loosely
-    const cleanCoords = coordinates.replace(/°/g, '').replace(/[N S W E]/gi, '');
-    const [latStr, lngStr] = cleanCoords.split(",");
-    const lat = parseFloat(latStr) || 0;
-    const lng = parseFloat(lngStr) || 0;
+
+    const lat = latitude ?? 0;
+    const lng = longitude ?? 0;
 
     try {
       await submitTicketAction({
@@ -352,6 +429,7 @@ export default function SubmitHazardPage() {
                     </Button>
                   </div>
                   <Input
+                    name="address"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="e.g. 452 Elm Street"
@@ -360,15 +438,32 @@ export default function SubmitHazardPage() {
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">Coordinates (Latitude, Longitude)</Label>
-                  <Input
-                    value={coordinates}
-                    onChange={(e) => setCoordinates(e.target.value)}
-                    placeholder="40.7128, -74.0060"
-                    className="text-xs font-mono bg-slate-50 dark:bg-slate-900"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="latitude" className="text-xs font-semibold text-muted-foreground">Latitude</Label>
+                    <Input
+                      id="latitude"
+                      name="latitude"
+                      readOnly
+                      value={latitude !== null ? latitude.toString() : ""}
+                      placeholder="Latitude"
+                      className="text-xs font-mono bg-slate-50 dark:bg-slate-900 cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="longitude" className="text-xs font-semibold text-muted-foreground">Longitude</Label>
+                    <Input
+                      id="longitude"
+                      name="longitude"
+                      readOnly
+                      value={longitude !== null ? longitude.toString() : ""}
+                      placeholder="Longitude"
+                      className="text-xs font-mono bg-slate-50 dark:bg-slate-900 cursor-not-allowed"
+                    />
+                  </div>
                 </div>
+                <input type="hidden" name="latitude" value={latitude !== null ? latitude : ""} />
+                <input type="hidden" name="longitude" value={longitude !== null ? longitude : ""} />
               </CardContent>
             </Card>
 

@@ -18,6 +18,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useSession } from "next-auth/react";
 import LogoutButton from "./logout";
 
 interface NavGroup {
@@ -62,8 +63,31 @@ const navGroups: NavGroup[] = [
   },
 ];
 
+function isGroupActiveForRole(groupLabel: string, role: string): boolean {
+  if (role === "ADMIN") return true;
+
+  switch (groupLabel) {
+    case "Citizen Services":
+      // Active for CITIZEN, FIELD_WORKER, MANAGER, ADMIN
+      return true;
+    case "Field Operations":
+      // Active for FIELD_WORKER, ADMIN
+      return role === "FIELD_WORKER";
+    case "Dispatch & GIS":
+      // Active for MANAGER, ADMIN
+      return role === "MANAGER";
+    case "Administration":
+      // Active for ADMIN only
+      return false;
+    default:
+      return true;
+  }
+}
+
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role || "CITIZEN";
 
   return (
     <aside
@@ -94,57 +118,72 @@ export function Sidebar({ className }: { className?: string }) {
 
       {/* Nav Content */}
       <div className="w-full flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin relative overflow-x-hidden">
-        {navGroups.map((group, idx) => (
-          <div key={idx} className="space-y-1.5">
-            <p className="px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              {group.label}
-            </p>
-            <nav className="space-y-1">
-              {group.items.map((item) => {
-                const isActive = pathname === item.href;
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all group relative",
-                      isActive
-                        ? "bg-blue-600/20 text-blue-300 font-semibold border-l-2 border-blue-500 pl-2.5"
-                        : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
-                    )}
-                  >
-                    <Icon
+        {navGroups.map((group, idx) => {
+          const isAllowed = isGroupActiveForRole(group.label, userRole);
+          return (
+            <div
+              key={idx}
+              className={cn(
+                "space-y-1.5 transition-opacity",
+                !isAllowed && "opacity-50 pointer-events-none cursor-not-allowed"
+              )}
+              aria-disabled={!isAllowed}
+            >
+              <p className="px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                {group.label}
+              </p>
+              <nav className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={isAllowed ? item.href : "#"}
+                      tabIndex={isAllowed ? 0 : -1}
+                      aria-disabled={!isAllowed}
+                      onClick={(e) => {
+                        if (!isAllowed) e.preventDefault();
+                      }}
                       className={cn(
-                        "size-4 shrink-0 transition-colors",
-                        isActive ? "text-blue-400" : "text-slate-400 group-hover:text-slate-200"
+                        "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all group relative",
+                        isActive
+                          ? "bg-blue-600/20 text-blue-300 font-semibold border-l-2 border-blue-500 pl-2.5"
+                          : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                       )}
-                    />
-                    <span className="truncate flex-1">{item.title}</span>
-
-                    {item.badge && (
-                      <Badge
-                        variant="secondary"
+                    >
+                      <Icon
                         className={cn(
-                          "text-[10px] px-1.5 py-0 rounded font-mono font-normal border-0",
-                          item.badge === "Offline"
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                            : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                          "size-4 shrink-0 transition-colors",
+                          isActive ? "text-blue-400" : "text-slate-400 group-hover:text-slate-200"
                         )}
-                      >
-                        {item.badge}
-                      </Badge>
-                    )}
+                      />
+                      <span className="truncate flex-1">{item.title}</span>
 
-                    {isActive && (
-                      <ChevronRight className="size-3.5 text-blue-400 shrink-0" />
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-        ))}
+                      {item.badge && (
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            "text-[10px] px-1.5 py-0 rounded font-mono font-normal border-0",
+                            item.badge === "Offline"
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                              : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                          )}
+                        >
+                          {item.badge}
+                        </Badge>
+                      )}
+
+                      {isActive && (
+                        <ChevronRight className="size-3.5 text-blue-400 shrink-0" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          );
+        })}
         
         <LogoutButton/>
       </div>

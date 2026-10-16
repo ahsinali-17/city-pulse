@@ -20,7 +20,7 @@ export default function LogoutButton() {
       className="
         w-[90%] flex justify-center items-center gap-2 rounded-md bg-red-600 py-2
         text-sm font-medium text-white hover:bg-red-700
-        transition-colors duration-200 absolute bottom-2 left-1/2 transform -translate-x-1/2 cursor-pointer
+        transition-colors duration-200 sticky bottom-2 cursor-pointer
       "
     >
       Log out

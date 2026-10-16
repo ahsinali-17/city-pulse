@@ -4,6 +4,7 @@ import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
+import { Toaster } from "@/components/ui/toast";
 import { SessionProvider } from "next-auth/react";
 
 const geistSans = Geist({
@@ -48,6 +49,7 @@ export default function RootLayout({
               </main>
             </div>
           </div>
+          <Toaster />
         </TooltipProvider>
         </SessionProvider>
       </body>
