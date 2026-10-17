@@ -13,9 +13,10 @@ interface FieldTaskPartsProps {
   isPending: boolean;
   startTransition: React.TransitionStartFunction;
   isOnline?: boolean;
+  readOnly?: boolean;
 }
 
-export function FieldTaskParts({ task, isPending, startTransition, isOnline = true }: FieldTaskPartsProps) {
+export function FieldTaskParts({ task, isPending, startTransition, isOnline = true, readOnly = false }: FieldTaskPartsProps) {
   const [newPartInput, setNewPartInput] = useState("");
   const isCompleted = task.status === "COMPLETED";
 
@@ -66,11 +67,13 @@ export function FieldTaskParts({ task, isPending, startTransition, isOnline = tr
           return (
             <button
               key={idx}
-              disabled={isCompleted || isPending}
+              disabled={isCompleted || isPending || readOnly}
               onClick={() => togglePart(part)}
               className={`w-full flex items-center justify-between text-left text-xs p-1.5 rounded transition-colors ${
                 isUsed
-                  ? "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
+                  ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300"
+                  : readOnly
+                  ? "bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 cursor-default"
                   : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer"
               }`}
             >
@@ -88,7 +91,7 @@ export function FieldTaskParts({ task, isPending, startTransition, isOnline = tr
           );
         })}
         
-        {!isCompleted && (
+        {!isCompleted && !readOnly && (
           <div className="flex items-center gap-2 mt-2 pt-1">
             <Input 
               placeholder="Add extra tool or part..." 

@@ -326,6 +326,8 @@ export interface FieldTask {
   notes: string;
   priority: "URGENT" | "HIGH" | "NORMAL" | "LOW";
   imageUrl: string;
+  assignedCrewName?: string;
+  departmentName?: string;
 }
 
 export const MOCK_FIELD_TASKS: FieldTask[] = [

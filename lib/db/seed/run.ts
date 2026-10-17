@@ -23,6 +23,7 @@ async function main() {
   console.log("🌱 Starting Database Seeding...");
 
   console.log("Clearing existing data...");
+  await db.delete(schema.ticketEvents);
   await db.delete(schema.tickets);
   await db.delete(schema.users);
   await db.delete(schema.departments);

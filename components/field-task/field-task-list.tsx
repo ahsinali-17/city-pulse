@@ -25,9 +25,10 @@ const DynamicFieldTaskMap = dynamic(() => import("./field-task-map"), {
 
 interface FieldTaskListProps {
   initialTasks: FieldTask[];
+  readOnly?: boolean;
 }
 
-export function FieldTaskList({ initialTasks }: FieldTaskListProps) {
+export function FieldTaskList({ initialTasks, readOnly = false }: FieldTaskListProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
@@ -214,7 +215,7 @@ export function FieldTaskList({ initialTasks }: FieldTaskListProps) {
                 </div>
               ) : (
                 activeTasks.map((t) => (
-                  <FieldTaskCard key={t.id} task={t} isOnline={isOnline} />
+                  <FieldTaskCard key={t.id} task={t} isOnline={isOnline} readOnly={readOnly} />
                 ))
               )}
             </TabsContent>
@@ -226,7 +227,7 @@ export function FieldTaskList({ initialTasks }: FieldTaskListProps) {
                 </div>
               ) : (
                 completedTasks.map((t) => (
-                  <FieldTaskCard key={t.id} task={t} isOnline={isOnline} />
+                  <FieldTaskCard key={t.id} task={t} isOnline={isOnline} readOnly={readOnly} />
                 ))
               )}
             </TabsContent>

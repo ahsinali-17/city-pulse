@@ -11,7 +11,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldTaskList } from "@/components/field-task/field-task-list";
 import { db } from "@/lib/db";
 import { tickets } from "@/lib/db/schema/tickets";
-import { eq } from "drizzle-orm";
+import { users } from "@/lib/db/schema/users";
+import { departments } from "@/lib/db/schema/departments";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { type FieldTask } from "@/lib/mock-data";
@@ -24,41 +26,69 @@ export default async function FieldWorkerPage() {
     redirect("/login");
   }
 
-  // Fetch tickets assigned to this crew member
-  const assignedTickets = await db
-    .select()
-    .from(tickets)
-    .where(
-      eq(tickets.assignedCrewId, session.user.id)
-    );
+  const userRole = session.user.role || "CITIZEN";
+  const isAdmin = userRole === "ADMIN";
 
-  const dbTasks = assignedTickets
-    .filter(t => t.assignedCrewId === session.user.id)
-    .map((t) => {
-      // Map valid status values to FieldTask statuses
-      let mappedStatus: FieldTask["status"] = t.status === "RESOLVED" ? "COMPLETED" : t.status === "DISPATCHED" ? "ASSIGNED" : t.status as FieldTask["status"]
+  // For Field Workers: fetch tickets assigned directly to them.
+  // For Admin: fetch citywide active dispatched/in-progress tickets with their assigned crew details.
+  const rows = isAdmin
+    ? await db
+        .select({
+          ticket: tickets,
+          crewName: users.name,
+          departmentName: departments.name,
+        })
+        .from(tickets)
+        .leftJoin(users, eq(tickets.assignedCrewId, users.id))
+        .leftJoin(departments, eq(tickets.departmentId, departments.id))
+        .where(
+          and(
+            inArray(tickets.status, ["DISPATCHED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS", "RESOLVED", "COMPLETED"]),
+            isNotNull(tickets.assignedCrewId)
+          )
+        )
+    : await db
+        .select({
+          ticket: tickets,
+          crewName: users.name,
+          departmentName: departments.name,
+        })
+        .from(tickets)
+        .leftJoin(users, eq(tickets.assignedCrewId, users.id))
+        .leftJoin(departments, eq(tickets.departmentId, departments.id))
+        .where(eq(tickets.assignedCrewId, session.user.id));
 
-      return {
-        id: t.id,
-        title: t.title,
-        category: t.category,
-        severity: t.severity as 1 | 2 | 3 | 4 | 5,
-        status: mappedStatus,
-        address: t.address,
-        coordinates: { lat: t.lat, lng: t.lng },
-        estimatedMinutes: t.aiAnalysis?.estimatedMinutes || 60,
-        reportedAt: new Date(t.createdAt).toLocaleDateString(),
-        partsNeeded: t.partsNeeded || [],
-        partsUsed: t.partsUsed || [],
-        notes: t.notes || t.description || "No specific instructions provided.",
-        priority: (t.priority || "NORMAL") as "URGENT" | "HIGH" | "NORMAL" | "LOW",
-        imageUrl: t.imageUrl || "",
-      } satisfies FieldTask;
+  const dbTasks = rows.map(({ ticket: t, crewName, departmentName }) => {
+    // Map valid status values to FieldTask statuses
+    let mappedStatus: FieldTask["status"] =
+      t.status === "RESOLVED"
+        ? "COMPLETED"
+        : t.status === "DISPATCHED"
+        ? "ASSIGNED"
+        : (t.status as FieldTask["status"]);
+
+    return {
+      id: t.id,
+      title: t.title,
+      category: t.category,
+      severity: t.severity as 1 | 2 | 3 | 4 | 5,
+      status: mappedStatus,
+      address: t.address,
+      coordinates: { lat: t.lat, lng: t.lng },
+      estimatedMinutes: t.aiAnalysis?.estimatedMinutes || 60,
+      reportedAt: new Date(t.createdAt).toLocaleDateString(),
+      partsNeeded: t.partsNeeded || [],
+      partsUsed: t.partsUsed || [],
+      notes: t.notes || t.description || "No specific instructions provided.",
+      priority: (t.priority || "NORMAL") as "URGENT" | "HIGH" | "NORMAL" | "LOW",
+      imageUrl: t.imageUrl || "",
+      assignedCrewName: crewName || "Field Crew",
+      departmentName: departmentName || undefined,
+    } satisfies FieldTask;
   });
 
-  const urgentCount = dbTasks.filter(
-    (t) => t.priority === "URGENT"
-  ).length;
+  const urgentCount = dbTasks.filter((t) => t.priority === "URGENT").length;
+  const inProgressCount = dbTasks.filter((t) => t.status !== "COMPLETED").length;
   const totalParts = dbTasks.reduce(
     (sum, t) => sum + t.partsNeeded.length,
     0
@@ -76,18 +106,24 @@ export default async function FieldWorkerPage() {
         </Link>
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <HardHat className="size-6 text-amber-600" /> Field Task Queue
+            <HardHat className="size-6 text-amber-600" />
+            {isAdmin ? "Field Operations Queue" : "Field Task Queue"}
           </h1>
           <Badge
             variant="outline"
-            className="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 text-xs font-mono"
+            className={
+              isAdmin
+                ? "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-xs font-mono"
+                : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 text-xs font-mono"
+            }
           >
-            Crew #4 • PWA
+            {isAdmin ? "Citywide Dispatch • Admin Oversight" : "Crew Member • PWA"}
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          Manage field repair assignments, log inventory parts, and sync
-          offline progress.
+          {isAdmin
+            ? "Real-time field execution status across all municipal crews. Monitor active on-site repairs, emergency dispatches, and material usage."
+            : "Manage field repair assignments, log inventory parts, and sync offline progress."}
         </p>
       </div>
 
@@ -97,7 +133,7 @@ export default async function FieldWorkerPage() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-semibold">
               <Radio className="size-3.5 text-emerald-500 animate-pulse" />
-              Online — Real-time Sync Active
+              {isAdmin ? "Telemetry Active — Live Field Stream" : "Online — Real-time Sync Active"}
             </div>
             <span className="text-muted-foreground font-mono hidden sm:inline">
               Last sync: just now
@@ -118,10 +154,10 @@ export default async function FieldWorkerPage() {
         <Card className="border-slate-200 dark:border-slate-800 shadow-xs">
           <CardContent className="p-3 text-center">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Assigned
+              {isAdmin ? "In Field" : "Assigned"}
             </p>
             <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 font-mono mt-0.5">
-              {dbTasks.length}
+              {isAdmin ? inProgressCount : dbTasks.length}
             </h3>
           </CardContent>
         </Card>
@@ -148,7 +184,7 @@ export default async function FieldWorkerPage() {
       </div>
 
       {/* Interactive Task List (Client Component) */}
-      <FieldTaskList initialTasks={dbTasks} />
+      <FieldTaskList initialTasks={dbTasks} readOnly={isAdmin} />
     </div>
   );
 }

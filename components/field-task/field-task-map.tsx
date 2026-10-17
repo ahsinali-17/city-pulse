@@ -169,6 +169,11 @@ export default function FieldTaskMap({ tasks }: FieldTaskMapProps) {
                       <MapPin className="size-3 text-emerald-600 shrink-0 mt-0.5" />
                       <span>{task.address}</span>
                     </div>
+                    {task.assignedCrewName && (
+                      <div className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-mono border border-amber-200">
+                        Crew: {task.assignedCrewName}
+                      </div>
+                    )}
                   </div>
                 </Popup>
               </CircleMarker>

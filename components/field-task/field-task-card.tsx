@@ -13,6 +13,7 @@ import {
   Play,
   RefreshCw,
   Wrench,
+  HardHat,
 } from "lucide-react";
 import { type FieldTask } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
@@ -65,9 +66,10 @@ function getStatusProgress(status: string): number {
 interface FieldTaskCardProps {
   task: FieldTask;
   isOnline?: boolean;
+  readOnly?: boolean;
 }
 
-export function FieldTaskCard({ task, isOnline = true }: FieldTaskCardProps) {
+export function FieldTaskCard({ task, isOnline = true, readOnly = false }: FieldTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -119,6 +121,12 @@ export function FieldTaskCard({ task, isOnline = true }: FieldTaskCardProps) {
               <span className="text-[10px] font-mono text-muted-foreground">
                 {task.id}
               </span>
+              {task.assignedCrewName && (
+                <Badge variant="outline" className="text-[10px] bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 gap-1 font-mono">
+                  <HardHat className="size-3 text-amber-500" />
+                  {task.assignedCrewName}
+                </Badge>
+              )}
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-snug">
               {task.title}
@@ -175,7 +183,7 @@ export function FieldTaskCard({ task, isOnline = true }: FieldTaskCardProps) {
         {isExpanded && (
           <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
             {/* Parts Inventory Component */}
-            <FieldTaskParts task={task} isPending={isPending} startTransition={startTransition} isOnline={isOnline} />
+            <FieldTaskParts task={task} isPending={isPending} startTransition={startTransition} isOnline={isOnline} readOnly={readOnly} />
 
             {/* Dispatch Notes */}
             <div>
@@ -189,8 +197,8 @@ export function FieldTaskCard({ task, isOnline = true }: FieldTaskCardProps) {
           </div>
         )}
 
-        {/* Action Button */}
-        {!isCompleted && STATUS_FLOW[status] && (
+        {/* Action Button: only rendered for the assigned field worker */}
+        {!readOnly && !isCompleted && STATUS_FLOW[status] && (
           <Button
             onClick={advanceStatus}
             disabled={isPending}
@@ -203,6 +211,19 @@ export function FieldTaskCard({ task, isOnline = true }: FieldTaskCardProps) {
             {isPending ? <RefreshCw className="size-4 animate-spin" /> : <ActionIcon className="size-4" />}
             {isPending ? "Updating Database..." : STATUS_ACTION_LABELS[status]}
           </Button>
+        )}
+
+        {/* Admin Supervisory Indicator */}
+        {readOnly && !isCompleted && (
+          <div className="flex items-center justify-between text-xs py-2 px-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200/70 dark:border-slate-800 text-slate-600 dark:text-slate-300">
+            <span className="flex items-center gap-1.5 font-medium">
+              <HardHat className="size-3.5 text-amber-500" />
+              Assigned Crew: <strong>{task.assignedCrewName || "Field Crew"}</strong>
+            </span>
+            <span className="text-[11px] font-mono font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900">
+              {STATUS_ACTION_LABELS[status] ? `Stage: ${status.replace(/_/g, " ")}` : status}
+            </span>
+          </div>
         )}
 
         {isCompleted && (
