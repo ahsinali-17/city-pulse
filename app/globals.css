@@ -131,6 +131,40 @@
   }
 }
 
+/* Sleek Civic Scrollbar with transparent track/path */
+.sleek-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent; /* thumb track */
+}
+
+.sleek-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.sleek-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.sleek-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+
+.sleek-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Invisible Scrollbar Utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+
 .civic-glass {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);

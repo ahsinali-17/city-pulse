@@ -111,13 +111,10 @@ export function Sidebar({ className }: { className?: string }) {
             </span>
           </div>
         </Link>
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-400 bg-emerald-950/40">
-          v1.0 UI
-        </Badge>
       </div>
 
       {/* Nav Content */}
-      <div className="w-full flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin relative overflow-x-hidden">
+      <div className="w-full flex-1 overflow-y-auto py-4 px-3 space-y-6 sleek-scrollbar relative overflow-x-hidden">
         {navGroups.map((group, idx) => {
           const isAllowed = isGroupActiveForRole(group.label, userRole);
           return (

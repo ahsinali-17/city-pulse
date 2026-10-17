@@ -42,27 +42,41 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           name: user.name,
           email: user.email,
           role: user.role,
+          image: user.avatarUrl,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       // Add role and id to JWT on initial sign in
       if (user) {
         token.id = user.id;
-        token.role = user.role;
+        token.role = (user as any).role;
+        token.picture = (user as any).image || (user as any).avatarUrl;
+      }
+      if (trigger === "update" && session) {
+        if (session.name) token.name = session.name;
+        if (session.image !== undefined) token.picture = session.image;
+        if (session.role) token.role = session.role;
       }
       return token;
     },
     async session({ session, token }) {
-      // Pass role and id from JWT to the client session
+      // Pass role, id, and picture from JWT to the client session
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        if (token.picture) {
+          session.user.image = token.picture as string;
+        }
+        if (token.name) {
+          session.user.name = token.name as string;
+        }
       }
       return session;
     },
   },
 });
+
 
