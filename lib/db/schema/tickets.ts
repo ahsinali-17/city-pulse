@@ -1,4 +1,4 @@
-import { doublePrecision, integer, json, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { doublePrecision, index, integer, json, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { departments } from "./departments";
 
@@ -54,4 +54,10 @@ export const tickets = pgTable("tickets", {
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("tickets_department_id_idx").on(table.departmentId),
+  index("tickets_assigned_crew_id_idx").on(table.assignedCrewId),
+  index("tickets_status_idx").on(table.status),
+  index("tickets_reporter_id_idx").on(table.reporterId),
+]);
+

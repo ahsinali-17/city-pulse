@@ -107,7 +107,7 @@ export function Header() {
 
       {/* Page Breadcrumb / Title */}
       <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial">
-        <h1 className="text-xs sm:text-sm md:text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100 truncate max-w-[150px] xs:max-w-[200px] sm:max-w-none">
+        <h1 className="text-xs sm:text-sm md:text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100 truncate max-w-37.5 xs:max-w-[200px] sm:max-w-none">
           {getPageTitle()}
         </h1>
         <Badge

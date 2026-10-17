@@ -4,17 +4,17 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   BarChart3,
-  ShieldAlert,
   ArrowUpRight,
   Filter,
   MapPin,
   Trash2,
-  Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PdfDownloadButton } from "@/components/pdf-download-button";
+import { AdminDashboardKpis } from "./dashboard/admin-dashboard-kpis";
+import { AdminDepartmentProgress } from "./dashboard/admin-department-progress";
 
 export interface AdminTicket {
   id: string;
@@ -26,7 +26,7 @@ export interface AdminTicket {
   address: string;
   departmentId: string | null;
   departmentName: string;
-  createdAt: string; // ISO string
+  createdAt: string;
 }
 
 const CATEGORIES = ["All", "Water", "Road", "Electrical", "Gas", "Sewer", "Other"];
@@ -113,7 +113,12 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
     return [...grouped.values()].sort((a, b) => (b.ongoing + b.resolved) - (a.ongoing + a.resolved));
   }, [filteredTickets]);
 
-  const hasActiveFilters = categoryFilter !== "All" || severityFilter !== "All" || recencyDays > 0 || workflowFilter !== "ALL" || departmentFilter !== "ALL";
+  const hasActiveFilters =
+    categoryFilter !== "All" ||
+    severityFilter !== "All" ||
+    recencyDays > 0 ||
+    workflowFilter !== "ALL" ||
+    departmentFilter !== "ALL";
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
@@ -132,7 +137,7 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
       </div>
 
       {/* Filters */}
-      <Card className="shadow-sm">
+      <Card className="shadow-xs">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Filter className="size-4 text-indigo-500" />
@@ -146,7 +151,6 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4 items-end">
-            {/* Category Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Hazard Category
@@ -154,7 +158,7 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="block w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="block w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -162,7 +166,6 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               </select>
             </div>
 
-            {/* Severity Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Severity Level
@@ -170,7 +173,7 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               <select
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(e.target.value)}
-                className="block w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="block w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               >
                 {SEVERITIES.map((s) => (
                   <option key={s} value={s}>{s === "All" ? "All Severities" : `${s}`}</option>
@@ -178,7 +181,6 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               </select>
             </div>
 
-            {/* Recency Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Time Period
@@ -186,7 +188,7 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               <select
                 value={recencyDays}
                 onChange={(e) => setRecencyDays(Number(e.target.value))}
-                className="block w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="block w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               >
                 {RECENCY_OPTIONS.map((opt) => (
                   <option key={opt.days} value={opt.days}>{opt.label}</option>
@@ -194,7 +196,6 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               </select>
             </div>
 
-            {/* Workflow Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Workflow
@@ -202,7 +203,7 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               <select
                 value={workflowFilter}
                 onChange={(e) => setWorkflowFilter(e.target.value)}
-                className="block w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="block w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               >
                 {WORKFLOW_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -210,7 +211,6 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               </select>
             </div>
 
-            {/* Department Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Department
@@ -218,7 +218,7 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="block w-52 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="block w-52 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm shadow-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               >
                 <option value="ALL">All Departments</option>
                 {departmentOptions.map(([id, name]) => (
@@ -227,7 +227,6 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
               </select>
             </div>
 
-            {/* Reset */}
             {hasActiveFilters && (
               <div className="flex items-end justify-center my-1 pt-3">
                 <Button
@@ -252,97 +251,18 @@ export function AdminDashboardClient({ allTickets }: { allTickets: AdminTicket[]
       </Card>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Total Incidents
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold font-mono">{totalTickets}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm border-emerald-200 dark:border-emerald-900">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-              Resolved
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-              {resolvedTickets}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm border-blue-200 dark:border-blue-900">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-              Active / En Route
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold font-mono text-blue-600 dark:text-blue-400">
-              {inProgressTickets}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldAlert className="size-3.5" /> Urgent
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold font-mono text-red-600 dark:text-red-400">
-              {urgentTickets}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <AdminDashboardKpis
+        totalTickets={totalTickets}
+        resolvedTickets={resolvedTickets}
+        inProgressTickets={inProgressTickets}
+        urgentTickets={urgentTickets}
+      />
 
       {/* Department Progress */}
-      <Card className="shadow-sm">
-        <CardHeader className="border-b bg-slate-50/50 dark:bg-slate-900/20">
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="size-4 text-indigo-500" />
-            Department Progress
-          </CardTitle>
-          <CardDescription>Ongoing versus resolved work in the current dashboard scope.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-5">
-          {departmentProgress.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No department activity matches the current filters.</p>
-          ) : (
-            departmentProgress.map((department) => {
-              const total = department.ongoing + department.resolved;
-              const resolvedWidth = total === 0 ? 0 : (department.resolved / total) * 100;
-              return (
-                <div key={department.name} className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="truncate font-medium text-slate-800 dark:text-slate-200">{department.name}</span>
-                    <span className="shrink-0 text-muted-foreground">{department.ongoing} ongoing · {department.resolved} resolved</span>
-                  </div>
-                  <div className="flex h-2.5 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-950/50">
-                    <div className="bg-blue-500" style={{ width: `${100 - resolvedWidth}%` }} />
-                    <div className="bg-emerald-500" style={{ width: `${resolvedWidth}%` }} />
-                  </div>
-                </div>
-              );
-            })
-          )}
-          <div className="flex items-center gap-4 pt-1 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-blue-500" />Ongoing</span>
-            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-emerald-500" />Resolved</span>
-          </div>
-        </CardContent>
-      </Card>
+      <AdminDepartmentProgress departmentProgress={departmentProgress} />
 
       {/* Incident Table */}
-      <Card className="shadow-sm overflow-hidden">
+      <Card className="shadow-xs overflow-hidden">
         <CardHeader className="border-b bg-slate-50/50 dark:bg-slate-900/20">
           <CardTitle>Incident Log</CardTitle>
           <CardDescription>

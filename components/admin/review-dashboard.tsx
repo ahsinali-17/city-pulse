@@ -1,12 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import Link from "next/link";
 import {
   Building2,
-  Camera,
   CheckCircle2,
-  ChevronRight,
   Clock3,
   FolderClock,
   ShieldAlert,
@@ -14,36 +11,24 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogClose,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { assignTicketDepartment, bulkAssignTicketDepartments, correctTicketRoute, freezeAndNotifyTicket, returnTicketToManager } from "@/app/admin/review/actions";
+import {
+  assignTicketDepartment,
+  bulkAssignTicketDepartments,
+  correctTicketRoute,
+  freezeAndNotifyTicket,
+  returnTicketToManager,
+} from "@/app/admin/review/actions";
+import {
+  ReviewSuspendedCard,
+  type ReviewTicket,
+} from "./review/review-suspended-card";
+import { ReviewArchivedCard } from "./review/review-archived-card";
+import { ReviewAiCard } from "./review/review-ai-card";
 
-type ReviewTicket = {
-  id: string;
-  title: string;
-  department: string;
-  departmentId?: string | null;
-  status: string;
-  priority: string;
-  eta: string;
-  imageUrl?: string | null;
-  aiConfidence?: number | null;
-  reviewReason?: string | null;
-  reviewSource?: string | null;
-};
+export type { ReviewTicket };
 
 type ReviewDepartment = { id: string; name: string };
 
@@ -110,12 +95,15 @@ export function AdminReviewDashboard({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 py-8">
+      {/* Header & KPI Summary */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
             <ShieldAlert className="size-3.5" /> Review Queue
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Admin Review Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Admin Review Dashboard
+          </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Route correction, department follow-up, and escalation handling for suspended or misrouted tickets.
           </p>
@@ -156,89 +144,38 @@ export function AdminReviewDashboard({
           </TabsTrigger>
         </TabsList>
 
+        {/* Suspended Departments Tab */}
         <TabsContent value="suspended" className="space-y-4">
           {suspendedTickets.length === 0 ? (
             <Card className="border-slate-200 dark:border-slate-800">
-              <CardContent className="p-6 text-sm text-slate-500 dark:text-slate-400">No suspended-department tickets are awaiting review.</CardContent>
+              <CardContent className="p-6 text-sm text-slate-500 dark:text-slate-400">
+                No suspended-department tickets are awaiting review.
+              </CardContent>
             </Card>
           ) : (
             suspendedTickets.map((ticket) => (
-              <Card key={ticket.id} className="border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20">
-                <CardContent className="p-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-300 uppercase">
-                          {ticket.id}
-                        </Badge>
-                        <Badge variant="secondary" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                          {ticket.department}
-                        </Badge>
-                      </div>
-                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{ticket.title}</h3>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                        <span>{ticket.status}</span>
-                        <span>•</span>
-                        <span>{ticket.priority} priority</span>
-                        <span>•</span>
-                        <span>{ticket.eta}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Dialog>
-                        <DialogTrigger
-                          render={
-                            <Button variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-950/40">
-                              <TriangleAlert className="mr-2 size-4" /> Freeze & Notify
-                            </Button>
-                          }
-                        />
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Freeze and notify this department?</DialogTitle>
-                            <DialogDescription>
-                              This suspended department ticket will be held for admin attention and the manager will be notified.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <DialogFooter>
-                            <DialogClose render={<Button variant="outline">Cancel</Button>} />
-                            <DialogClose
-                              render={
-                                <Button
-                                  className="bg-amber-600 text-white hover:bg-amber-700"
-                                  disabled={isPending}
-                                  onClick={() => runAction(ticket.id, () => freezeAndNotifyTicket(ticket.id))}
-                                >
-                                  {pendingTicketId === ticket.id ? "Freezing..." : "Confirm Freeze"}
-                                </Button>
-                              }
-                            />
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-
-                      <Link
-                        href={`/manager/dispatch?ticketId=${ticket.id}`}
-                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-transparent bg-slate-900 px-2.5 text-sm font-medium whitespace-nowrap text-white transition-all hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                      >
-                        Act as Manager (Assign)
-                        <ChevronRight className="size-4" />
-                      </Link>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <ReviewSuspendedCard
+                key={ticket.id}
+                ticket={ticket}
+                isPending={isPending}
+                isCurrentPending={pendingTicketId === ticket.id}
+                onFreezeAndNotify={(id) => runAction(id, () => freezeAndNotifyTicket(id))}
+              />
             ))
           )}
         </TabsContent>
 
+        {/* Archived Departments Tab */}
         <TabsContent value="archived" className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-950">
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Archived department reroute queue</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Bulk reassignment for orphaned archive tickets.</p>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  Archived department reroute queue
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Bulk reassignment for orphaned archive tickets.
+                </p>
               </div>
               <Button
                 variant="outline"
@@ -258,147 +195,54 @@ export function AdminReviewDashboard({
                 </div>
               ) : (
                 archivedTickets.map((ticket) => (
-                  <Card key={ticket.id} className="border-slate-200 dark:border-slate-800">
-                    <CardContent className="p-4">
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline" className="border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 uppercase">
-                              {ticket.id}
-                            </Badge>
-                            <Badge variant="secondary" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                              {ticket.department}
-                            </Badge>
-                          </div>
-                          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{ticket.title}</h3>
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                            <span>{ticket.status}</span>
-                            <span>•</span>
-                            <span>{ticket.priority} priority</span>
-                            <span>•</span>
-                            <span>{ticket.eta}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex w-full max-w-xs gap-2">
-                          <Select
-                            value={archivedSelection[ticket.id] ?? ""}
-                            onValueChange={(value) => setArchivedSelection((prev) => ({ ...prev, [ticket.id]: value || "" }))}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select active department" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {departments.map((department) => (
-                                <SelectItem key={department.id} value={department.id}>{department.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="sm"
-                            disabled={isPending || !archivedSelection[ticket.id]}
-                            onClick={() => runAction(ticket.id, () => assignTicketDepartment(ticket.id, archivedSelection[ticket.id]))}
-                          >
-                            {pendingTicketId === ticket.id ? "Saving..." : "Assign"}
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <ReviewArchivedCard
+                    key={ticket.id}
+                    ticket={ticket}
+                    departments={departments}
+                    selectedDepartmentId={archivedSelection[ticket.id] ?? ""}
+                    isPending={isPending}
+                    isCurrentPending={pendingTicketId === ticket.id}
+                    onDepartmentSelect={(id, deptId) =>
+                      setArchivedSelection((prev) => ({ ...prev, [id]: deptId }))
+                    }
+                    onAssign={(id) =>
+                      runAction(id, () => assignTicketDepartment(id, archivedSelection[id]))
+                    }
+                  />
                 ))
               )}
             </div>
           </div>
         </TabsContent>
 
+        {/* AI / Manager Review Tab */}
         <TabsContent value="ai" className="space-y-4">
           {aiTickets.length === 0 ? (
             <Card className="border-slate-200 dark:border-slate-800">
-              <CardContent className="p-6 text-sm text-slate-500 dark:text-slate-400">No tickets need AI or manager routing review.</CardContent>
+              <CardContent className="p-6 text-sm text-slate-500 dark:text-slate-400">
+                No tickets need AI or manager routing review.
+              </CardContent>
             </Card>
           ) : (
             aiTickets.map((ticket) => (
-              <Card key={ticket.id} className="border-violet-200 bg-violet-50/60 dark:border-violet-900 dark:bg-violet-950/20">
-                <CardContent className="p-5">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-200 uppercase">
-                          {ticket.id}
-                        </Badge>
-                        <Badge variant="secondary" className="bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-200">
-                          {ticket.department}
-                        </Badge>
-                      </div>
-                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{ticket.title}</h3>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                        <Badge variant="outline" className="border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-200">
-                          {ticket.reviewReason === "MANAGER_ESCALATION" ? "Manager escalation" : "AI routing review"}
-                        </Badge>
-                        {ticket.aiConfidence !== null && ticket.aiConfidence !== undefined && <span>AI confidence {ticket.aiConfidence.toFixed(2)}</span>}
-                        <span>•</span>
-                        <span>{ticket.priority} priority</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      {ticket.imageUrl && (
-                        <Dialog>
-                          <DialogTrigger
-                            render={
-                              <Button variant="outline" className="border-violet-300 text-violet-800 hover:bg-violet-100 dark:border-violet-700 dark:text-violet-200 dark:hover:bg-violet-950/40">
-                                <Camera className="mr-2 size-4" /> View Image
-                              </Button>
-                            }
-                          />
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>{ticket.title}</DialogTitle>
-                              <DialogDescription>Image evidence associated with the routing review.</DialogDescription>
-                            </DialogHeader>
-                            <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
-                              <img src={ticket.imageUrl} alt={ticket.title} className="h-105 w-full object-cover" />
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      )}
-
-                      <div className="w-full min-w-45 sm:w-55">
-                        <Select
-                          value={aiSelection[ticket.id] ?? ""}
-                          onValueChange={(value) => setAiSelection((prev) => ({ ...prev, [ticket.id]: value || "" }))}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select correct department" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {departments.map((department) => (
-                              <SelectItem key={department.id} value={department.id}>{department.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <Button
-                        className="bg-violet-600 text-white hover:bg-violet-700"
-                        disabled={isPending || !aiSelection[ticket.id]}
-                        onClick={() => runAction(
-                          ticket.id,
-                          () => aiSelection[ticket.id] === ticket.departmentId
-                            ? returnTicketToManager(ticket.id)
-                            : correctTicketRoute(ticket.id, aiSelection[ticket.id]),
-                        )}
-                      >
-                        {pendingTicketId === ticket.id
-                          ? "Saving..."
-                          : aiSelection[ticket.id] === ticket.departmentId
-                            ? "Return to Manager"
-                            : "Confirm Route"}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <ReviewAiCard
+                key={ticket.id}
+                ticket={ticket}
+                departments={departments}
+                selectedDepartmentId={aiSelection[ticket.id] ?? ""}
+                isPending={isPending}
+                isCurrentPending={pendingTicketId === ticket.id}
+                onDepartmentSelect={(id, deptId) =>
+                  setAiSelection((prev) => ({ ...prev, [id]: deptId }))
+                }
+                onConfirmRoute={(id) =>
+                  runAction(id, () =>
+                    aiSelection[id] === ticket.departmentId
+                      ? returnTicketToManager(id)
+                      : correctTicketRoute(id, aiSelection[id])
+                  )
+                }
+              />
             ))
           )}
         </TabsContent>

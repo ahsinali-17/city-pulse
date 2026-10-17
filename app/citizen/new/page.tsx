@@ -1,57 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { submitTicketAction } from "./actions";
 import {
   Camera,
-  Upload,
-  MapPin,
-  Sparkles,
   AlertTriangle,
   CheckCircle2,
   Loader2,
-  Info,
   ArrowLeft,
-  X,
-  FileImage,
-  Crosshair,
-  ShieldCheck,
-  RefreshCw,
+  Sparkles,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-const SAMPLE_PHOTOS = [
-  {
-    label: "Water Burst",
-    url: "https://images.unsplash.com/photo-1686890363933-4a1125d4e3b0?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fHdhdGVyJTIwbGVha2FnZXxlbnwwfHwwfHx8MA%3D%3D",
-    category: "Water Leak",
-    severity: 5,
-    title: "High Pressure Water Main Burst",
-  },
-  {
-    label: "Deep Pothole",
-    url: "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80",
-    category: "Pothole",
-    severity: 4,
-    title: "Deep Pothole in Right Lane",
-  },
-  {
-    label: "Fallen Tree",
-    url: "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=800&q=80",
-    category: "Tree Branch",
-    severity: 2,
-    title: "Overhanging Broken Tree Branch",
-  },
-];
+import {
+  HazardPhotoUploader,
+  SAMPLE_PHOTOS,
+} from "@/components/citizen/new-hazard/hazard-photo-uploader";
+import { HazardAiCard } from "@/components/citizen/new-hazard/hazard-ai-card";
+import { HazardLocationInput } from "@/components/citizen/new-hazard/hazard-location-input";
 
 export default function SubmitHazardPage() {
   const router = useRouter();
@@ -71,11 +44,7 @@ export default function SubmitHazardPage() {
   const [location, setLocation] = useState<string>("452 Elm Street, Downtown Metroville");
   const [latitude, setLatitude] = useState<number | null>(40.7128);
   const [longitude, setLongitude] = useState<number | null>(-74.0060);
-  const [isLocating, setIsLocating] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
-  const isSettingFromGpsRef = useRef(false);
-  const initialRenderRef = useRef(true);
 
   const runAiTriage = async (imageUrl: string = "", imageBase64: string = "") => {
     setIsScanning(true);
@@ -99,112 +68,23 @@ export default function SubmitHazardPage() {
         }
       }
     } catch (err) {
-      console.error(err);
+      console.error("AI Triage error:", err);
     } finally {
       setIsScanning(false);
       setAiScanned(true);
     }
   };
 
-  const handleSelectSample = (sample: typeof SAMPLE_PHOTOS[0]) => {
-    setSelectedPhoto(sample.url);
-    runAiTriage(sample.url, "");
+  const handlePhotoSelected = (url: string, base64: string) => {
+    const photo = url || base64;
+    setSelectedPhoto(photo);
+    runAiTriage(url, base64);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      setSelectedPhoto(base64);
-      runAiTriage("", base64);
-    };
-    reader.readAsDataURL(file);
+  const handlePhotoCleared = () => {
+    setSelectedPhoto(null);
+    setAiScanned(false);
   };
-
-  const handleDetectGPS = () => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
-      return;
-    }
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        setLatitude(lat);
-        setLongitude(lon);
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
-            {
-              headers: {
-                "User-Agent": "CityPulse-Triage-App",
-              },
-            }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            if (data.display_name) {
-              isSettingFromGpsRef.current = true;
-              setLocation(data.display_name);
-            }
-          }
-        } catch (err) {
-          console.error("Reverse geocoding error:", err);
-        } finally {
-          setIsLocating(false);
-        }
-      },
-      (err) => {
-        console.error("Geolocation error:", err);
-        setIsLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
-  // 500ms debounced forward geocoding on address input
-  useEffect(() => {
-    if (initialRenderRef.current) {
-      initialRenderRef.current = false;
-      return;
-    }
-    if (isSettingFromGpsRef.current) {
-      isSettingFromGpsRef.current = false;
-      return;
-    }
-    if (!location.trim()) return;
-
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location.trim())}&format=json&limit=1`,
-          {
-            headers: {
-              "User-Agent": "CityPulse-Triage-App",
-            },
-          }
-        );
-        if (res.ok) {
-          const results = await res.json();
-          if (Array.isArray(results) && results.length > 0) {
-            const topResult = results[0];
-            if (topResult.lat && topResult.lon) {
-              setLatitude(parseFloat(topResult.lat));
-              setLongitude(parseFloat(topResult.lon));
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Forward geocoding error:", err);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,7 +115,7 @@ export default function SubmitHazardPage() {
       });
       router.push("/citizen/tickets");
     } catch (err) {
-      console.error(err);
+      console.error("Submission failed:", err);
       setIsSubmitting(false);
     }
   };
@@ -255,7 +135,7 @@ export default function SubmitHazardPage() {
             <Camera className="size-6 text-blue-600" /> Submit Municipal Hazard Report
           </h1>
           <p className="text-xs text-muted-foreground">
-            Snap a photo or upload an image. Gemini AI will analyze the hazard, score severity, and check for duplicate reports.
+            Snap a photo or upload an image. Gemini AI will analyze the hazard, score severity, and route to the correct municipal department.
           </p>
         </div>
         <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 text-xs font-mono">
@@ -267,203 +147,57 @@ export default function SubmitHazardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Column: Photo Upload & AI Vision Preview */}
           <div className="space-y-4">
-            <Card className="border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+            <Card className="border-slate-200 dark:border-slate-800 shadow-xs">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <FileImage className="size-4 text-blue-600" /> Hazard Photo & Camera
-                  </span>
+                  <span>Hazard Photo & Visual Evidence</span>
                   <Badge variant="secondary" className="text-[10px] font-mono">Required</Badge>
                 </CardTitle>
                 <CardDescription className="text-xs">
                   Upload a photo or select a sample image below to trigger Gemini AI Triage.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Image Upload Display Box */}
-                <div className="relative rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-hidden aspect-video flex flex-col items-center justify-center group">
-                  {selectedPhoto ? (
-                    <>
-                      {/* Image */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={selectedPhoto}
-                        alt="Hazard upload preview"
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-
-                      {/* AI Scanning Overlay Effect */}
-                      {isScanning && (
-                        <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-xs flex flex-col items-center justify-center text-white space-y-2 animate-fade-in">
-                          <Loader2 className="size-8 text-blue-400 animate-spin" />
-                          <p className="text-xs font-mono font-medium tracking-wide flex items-center gap-1.5">
-                            <Sparkles className="size-3.5 text-blue-300 animate-pulse" /> Gemini Vision AI Scanning...
-                          </p>
-                        </div>
-                      )}
-
-                      {/* AI Scan Badge Overlay */}
-                      {!isScanning && aiScanned && (
-                        <div className="absolute top-3 left-3 bg-slate-900/85 text-white backdrop-blur-md px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center gap-1.5 border border-blue-500/40 shadow-md">
-                          <Sparkles className="size-3 text-blue-400" />
-                          <span>Gemini Vision: {severity}/5 {severity >= 4 ? "Critical" : "Hazard"}</span>
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPhoto(null)}
-                        className="absolute top-3 right-3 p-1.5 rounded-full bg-slate-900/80 text-white hover:bg-red-600 transition-colors"
-                      >
-                        <X className="size-4" />
-                      </button>
-                    </>
-                  ) : (
-                    <label className="text-center p-6 space-y-3 cursor-pointer w-full h-full flex flex-col items-center justify-center">
-                      <div className="p-3 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-full inline-block">
-                        <Upload className="size-6" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                          Click to upload hazard photo
-                        </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">JPG, PNG, or WEBP (Max 10MB)</p>
-                      </div>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-                    </label>
-                  )}
-                </div>
-
-                {/* Sample Images Quick Selector */}
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
-                    <Sparkles className="size-3.5 text-blue-500" /> Demo Sample Photos (One-Click AI Scan)
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {SAMPLE_PHOTOS.map((sample, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleSelectSample(sample)}
-                        className={`relative rounded-lg overflow-hidden border-2 text-left text-[11px] font-medium p-1 transition-all ${
-                          selectedPhoto === sample.url
-                            ? "border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/50 dark:bg-blue-950/30"
-                            : "border-slate-200 dark:border-slate-800 hover:border-slate-400"
-                        }`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={sample.url} alt={sample.label} className="w-full h-14 object-cover rounded" />
-                        <span className="block mt-1 truncate px-0.5 text-slate-800 dark:text-slate-200">{sample.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <CardContent>
+                <HazardPhotoUploader
+                  selectedPhoto={selectedPhoto}
+                  onPhotoSelected={handlePhotoSelected}
+                  onPhotoCleared={handlePhotoCleared}
+                />
               </CardContent>
             </Card>
 
             {/* AI Real-time Triage Insight Box */}
-            <Card className="border-blue-200 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20 shadow-xs">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="size-4 text-blue-600" /> AI Triage Assessment Preview
-                  </span>
-                  <Badge variant="outline" className="text-[10px] border-blue-400/50 text-blue-600 dark:text-blue-300">
-                    Confidence: {confidence}%
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/50">
-                  <span className="text-muted-foreground">Predicted Hazard:</span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">{category}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/50">
-                  <span className="text-muted-foreground">AI Severity Score:</span>
-                  <Badge className={`text-white font-mono font-bold text-xs px-2 py-0.5 ${severity >= 4 ? 'bg-red-600' : severity === 3 ? 'bg-orange-500' : 'bg-yellow-500'}`}>
-                    {severity} / 5 ({severity >= 4 ? "Critical" : "Hazard"})
-                  </Badge>
-                </div>
-
-                <Alert className="bg-white/80 dark:bg-slate-900/80 border-blue-200 dark:border-blue-900 p-2.5">
-                  <ShieldCheck className="size-4 text-emerald-600" />
-                  <AlertTitle className="text-xs font-semibold text-slate-900 dark:text-slate-100">100m Spatial Duplicate Check</AlertTitle>
-                  <AlertDescription className="text-[11px] text-muted-foreground">
-                    0 duplicate reports found within 100 meters. New unique incident ticket created.
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
+            <HazardAiCard
+              isScanning={isScanning}
+              aiScanned={aiScanned}
+              confidence={confidence}
+              category={category}
+              severity={severity}
+              suggestedDepartmentId={suggestedDepartmentId}
+              aiExplanation={aiExplanation}
+            />
           </div>
 
           {/* Right Column: Location & Report Form Details */}
           <div className="space-y-4">
             <Card className="border-slate-200 dark:border-slate-800 shadow-xs">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <MapPin className="size-4 text-emerald-600" /> Incident Location & Geolocation
-                </CardTitle>
+                <CardTitle className="text-base font-bold">Incident Location</CardTitle>
                 <CardDescription className="text-xs">
-                  We capture GPS coordinates to pinpoint repair sites on the dispatcher map.
+                  Coordinates pinpoint the repair location on the dispatcher map.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold">Street Address / Landmark</Label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleDetectGPS}
-                      disabled={isLocating}
-                      className="h-6 text-[11px] text-blue-600 hover:text-blue-700 gap-1 px-2"
-                    >
-                      {isLocating ? (
-                        <Loader2 className="size-3 animate-spin" />
-                      ) : (
-                        <Crosshair className="size-3" />
-                      )}
-                      <span>{isLocating ? "Fetching GPS..." : "Detect GPS"}</span>
-                    </Button>
-                  </div>
-                  <Input
-                    name="address"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="e.g. 452 Elm Street"
-                    className="text-xs"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="latitude" className="text-xs font-semibold text-muted-foreground">Latitude</Label>
-                    <Input
-                      id="latitude"
-                      name="latitude"
-                      readOnly
-                      value={latitude !== null ? latitude.toString() : ""}
-                      placeholder="Latitude"
-                      className="text-xs font-mono bg-slate-50 dark:bg-slate-900 cursor-not-allowed"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="longitude" className="text-xs font-semibold text-muted-foreground">Longitude</Label>
-                    <Input
-                      id="longitude"
-                      name="longitude"
-                      readOnly
-                      value={longitude !== null ? longitude.toString() : ""}
-                      placeholder="Longitude"
-                      className="text-xs font-mono bg-slate-50 dark:bg-slate-900 cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-                <input type="hidden" name="latitude" value={latitude !== null ? latitude : ""} />
-                <input type="hidden" name="longitude" value={longitude !== null ? longitude : ""} />
+              <CardContent>
+                <HazardLocationInput
+                  location={location}
+                  latitude={latitude}
+                  longitude={longitude}
+                  onLocationChange={setLocation}
+                  onCoordinatesChange={(lat, lng) => {
+                    setLatitude(lat);
+                    setLongitude(lng);
+                  }}
+                />
               </CardContent>
             </Card>
 
@@ -478,7 +212,7 @@ export default function SubmitHazardPage() {
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold">Hazard Category</Label>
                   <Select value={category} onValueChange={(val) => setCategory(val ?? "")}>
-                    <SelectTrigger className="text-xs w-[60%]">
+                    <SelectTrigger className="text-xs w-full sm:w-[60%]">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent alignItemWithTrigger={false}>
@@ -509,7 +243,7 @@ export default function SubmitHazardPage() {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Describe severity, hazards to traffic or pedestrians..."
-                    className="text-xs min-h-25"
+                    className="text-xs min-h-24"
                     required
                   />
                 </div>
@@ -518,9 +252,12 @@ export default function SubmitHazardPage() {
 
             {/* Submission Actions */}
             <div className="flex items-center justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" size="sm" className="text-xs">
-                <Link href="/">Cancel</Link>
-              </Button>
+              <Link
+                href="/"
+                className={buttonVariants({ variant: "outline", size: "sm", className: "text-xs" })}
+              >
+                Cancel
+              </Link>
 
               <Button
                 type="submit"
