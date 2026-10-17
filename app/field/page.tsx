@@ -60,7 +60,7 @@ export default async function FieldWorkerPage() {
 
   const dbTasks = rows.map(({ ticket: t, crewName, departmentName }) => {
     // Map valid status values to FieldTask statuses
-    let mappedStatus: FieldTask["status"] =
+    const mappedStatus: FieldTask["status"] =
       t.status === "RESOLVED"
         ? "COMPLETED"
         : t.status === "DISPATCHED"

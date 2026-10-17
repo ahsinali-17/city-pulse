@@ -20,18 +20,8 @@ export default function LoginPage() {
           <LoginForm />
         </Suspense>
         
-        <div className="text-center text-xs text-muted-foreground">
-          <p>Mock Accounts for Testing:</p>
-          <div className="mt-2 space-y-1 font-mono">
-            <p>john.public@example.com (CITIZEN)</p>
-            <p>crew4@citypulse.gov (FIELD WORKER)</p>
-              <p>sjenkins@citypulse.gov (WATER MANAGER)</p>
-            <p>admin@citypulse.gov (ADMIN)</p>
-            <p>citypulse123 (Password)</p>
-          </div>
-        </div>
         <div className="text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href="/signup"
             className="font-medium text-primary underline-offset-4 hover:underline"
