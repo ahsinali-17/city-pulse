@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogIn, Loader2 } from "lucide-react";
+import { LogIn, Loader2, AlertCircle } from "lucide-react";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -24,13 +24,26 @@ export function LoginForm() {
     setError("");
 
     try {
-      await signIn("credentials", {
-        email,
+      const result = await signIn("credentials", {
+        email: email.trim(),
         password,
-        redirectTo: callbackUrl,
+        redirect: false,
+        callbackUrl,
       });
-    } catch (err) {
-      setError("An unexpected error occurred.");
+
+      if (result?.error) {
+        if (result.error === "CredentialsSignin") {
+          setError("Invalid email or password. Please check your credentials and try again.");
+        } else {
+          setError(result.error);
+        }
+      } else if (result?.url) {
+        window.location.href = result.url;
+      } else {
+        window.location.href = callbackUrl;
+      }
+    } catch {
+      setError("An unexpected network or server error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -65,10 +78,9 @@ export function LoginForm() {
           className="bg-slate-50 dark:bg-slate-950"
         />
       </div>
-
       {(error || callbackError) && (
         <div className="text-xs text-red-500 font-medium bg-red-50 dark:bg-red-950/50 p-2 rounded border border-red-200 dark:border-red-900">
-          {error}
+          <span>{error || callbackError}</span>
         </div>
       )}
 

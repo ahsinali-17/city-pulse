@@ -267,7 +267,7 @@ export async function deleteUser(userId: string) {
       notInArray(tickets.status, ["RESOLVED", "COMPLETED"]),
     ));
 
-  //for completed tickets, so avoid referential integrity issues while deleting the user
+  // For completed tickets, avoid referential integrity issues while deleting the user
   await db
     .update(tickets)
     .set({ assignedCrewId: null })

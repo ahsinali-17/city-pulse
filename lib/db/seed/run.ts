@@ -32,7 +32,7 @@ async function main() {
   const seededUsers = await seedUsers(db);
   await seedTickets(db, {
     citizenId: seededUsers.citizen[0].id,
-    fieldWorkerId: seededUsers.fieldWorker[0].id,
+    waterWorkerId: seededUsers.fieldWorker[0].id, // usr-crew-4 — Water & Utilities dept
   });
 
   console.log("✅ Seeding completed successfully!");

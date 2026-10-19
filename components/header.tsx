@@ -26,6 +26,7 @@ import {
 
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "@/components/sidebar";
+import { NotificationBell } from "@/components/header/notification-bell";
 
 export type RoleType = "CITIZEN" | "FIELD_WORKER" | "MANAGER" | "ADMIN";
 
@@ -140,46 +141,8 @@ export function Header() {
               <span>{currentRoleConfig.label}</span>
             </Badge>
 
-            {/* Live Notifications Bell */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button variant="ghost" size="icon" className="relative text-slate-600 dark:text-slate-300">
-                    <Bell className="size-5" />
-                    <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />
-                    <span className="sr-only">View alerts</span>
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-80 p-0">
-                <div className="p-3 border-b text-xs font-semibold flex items-center justify-between bg-slate-50 dark:bg-slate-800">
-                  <span className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
-                    <AlertTriangle className="size-4 text-amber-500" /> Live Triage Notifications
-                  </span>
-                  <Badge variant="secondary" className="text-[10px]">Active</Badge>
-                </div>
-                <div className="divide-y text-xs max-h-64 overflow-y-auto sleek-scrollbar">
-                  <div className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <div className="flex items-center justify-between font-medium text-slate-900 dark:text-slate-100">
-                      <span>Civic Service Online</span>
-                      <span className="text-[10px] text-muted-foreground font-mono">Just now</span>
-                    </div>
-                    <p className="text-muted-foreground text-[11px] mt-0.5">
-                      Signed in as {user?.name || "Civic Operator"}. Municipal services running at optimal capacity.
-                    </p>
-                  </div>
-                  <div className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <div className="flex items-center justify-between font-medium text-slate-900 dark:text-slate-100">
-                      <span>Offline Sync Ready</span>
-                      <span className="text-[10px] text-muted-foreground font-mono">Standby</span>
-                    </div>
-                    <p className="text-muted-foreground text-[11px] mt-0.5">
-                      PWA local database initialized. Ready for field offline caching.
-                    </p>
-                  </div>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Live Notifications Bell (Polled Real-Time Ticket Events) */}
+            <NotificationBell />
 
             {/* User Profile Link directly accessible on clicking user image */}
             <Link

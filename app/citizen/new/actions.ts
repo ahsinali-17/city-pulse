@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { departments } from "@/lib/db/schema/departments";
+import { ticketEvents } from "@/lib/db/schema/ticket-events";
 import { tickets } from "@/lib/db/schema/tickets";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -49,28 +50,48 @@ export async function submitTicketAction(data: {
   // Calculate priority based on severity
   const priority = data.severity === 5 ? "URGENT" : data.severity === 4 ? "HIGH" : data.severity === 3 ? "NORMAL" : "LOW";
 
-  await db.insert(tickets).values({
-    id: newId,
-    title: data.title,
-    category: data.category,
-    description: data.description,
-    severity: data.severity,
-    priority: priority,
-    address: data.address,
-    lat: data.lat,
-    lng: data.lng,
-    imageUrl: data.imageUrl,
-    status: "REPORTED",
-    reporterId: session.user.id,
-    departmentId: departmentId,
-    aiAnalysis: data.aiAnalysis,
-    aiConfidence: confidence,
-    aiSuggestedDepartmentId: department?.id ?? null,
-    routingSource: "AI",
-    routingReviewStatus: routingCorrectionReason ? "NEEDS_ADMIN_REVIEW" : "NONE",
-    routingCorrectionReason,
-    routingUpdatedAt: routingCorrectionReason ? new Date() : null,
-  });
+  const now = new Date();
+  await db.batch([
+    db.insert(tickets).values({
+      id: newId,
+      title: data.title,
+      category: data.category,
+      description: data.description,
+      severity: data.severity,
+      priority: priority,
+      address: data.address,
+      lat: data.lat,
+      lng: data.lng,
+      imageUrl: data.imageUrl,
+      status: "REPORTED",
+      reporterId: session.user.id,
+      departmentId: departmentId,
+      aiAnalysis: data.aiAnalysis,
+      aiConfidence: confidence,
+      aiSuggestedDepartmentId: department?.id ?? null,
+      routingSource: "AI",
+      routingReviewStatus: routingCorrectionReason ? "NEEDS_ADMIN_REVIEW" : "NONE",
+      routingCorrectionReason,
+      routingUpdatedAt: routingCorrectionReason ? now : null,
+      createdAt: now,
+      updatedAt: now,
+    }),
+    db.insert(ticketEvents).values({
+      id: `event-${crypto.randomUUID()}`,
+      ticketId: newId,
+      eventType: "ROUTING_ASSIGNED",
+      actorId: session.user.id,
+      toDepartmentId: departmentId,
+      reason: routingCorrectionReason || "AI_INITIAL_ROUTING",
+      metadata: {
+        category: data.category,
+        confidence,
+        severity: data.severity,
+        priority,
+      },
+      createdAt: now,
+    }),
+  ]);
 
   revalidatePath("/citizen/tickets");
   revalidatePath("/admin");

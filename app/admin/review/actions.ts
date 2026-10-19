@@ -48,7 +48,7 @@ async function getActiveDepartment(departmentId: string) {
 }
 
 export async function freezeAndNotifyTicket(ticketId: string) {
-  await requireAdmin();
+  const actorId = await requireAdmin();
   const ticket = await getOpenTicket(ticketId);
 
   if (!ticket.departmentId) {

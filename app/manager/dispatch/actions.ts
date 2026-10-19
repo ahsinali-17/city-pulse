@@ -35,7 +35,7 @@ export async function assignTicket(ticketId: string, workerId: string | null) {
   const dispatcher = await requireDispatcher();
 
   const [ticket] = await db
-    .select({ departmentId: tickets.departmentId })
+    .select({ departmentId: tickets.departmentId, assignedCrewId: tickets.assignedCrewId })
     .from(tickets)
     .where(and(eq(tickets.id, ticketId), notInArray(tickets.status, ["RESOLVED", "COMPLETED"])));
 
@@ -71,17 +71,41 @@ export async function assignTicket(ticketId: string, workerId: string | null) {
     }
   }
 
-  await db
-    .update(tickets)
-    .set({
-      assignedCrewId: workerId,
-      status: workerId ? "DISPATCHED" : "TRIAGED",
-      ...(dispatcher.role === "ADMIN" && workerId
-        ? { routingReviewStatus: "RESOLVED" as const, routingCorrectionReason: "ADMIN_DISPATCH" }
-        : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(tickets.id, ticketId));
+  const now = new Date();
+  const operations: any[] = [
+    db
+      .update(tickets)
+      .set({
+        assignedCrewId: workerId,
+        status: workerId ? "DISPATCHED" : "TRIAGED",
+        ...(dispatcher.role === "ADMIN" && workerId
+          ? { routingReviewStatus: "RESOLVED" as const, routingCorrectionReason: "ADMIN_DISPATCH" }
+          : {}),
+        updatedAt: now,
+      })
+      .where(eq(tickets.id, ticketId)),
+  ];
+
+  if (workerId) {
+    operations.push(
+      db.insert(ticketEvents).values({
+        id: `event-${crypto.randomUUID()}`,
+        ticketId,
+        eventType: ticket.assignedCrewId ? "WORKER_REASSIGNED" : "WORKER_ASSIGNED",
+        actorId: dispatcher.id,
+        fromDepartmentId: ticket.departmentId,
+        toDepartmentId: ticket.departmentId,
+        reason: ticket.assignedCrewId ? "WORKER_REASSIGNED" : "WORKER_ASSIGNED",
+        metadata: {
+          workerId,
+          previousWorkerId: ticket.assignedCrewId,
+        },
+        createdAt: now,
+      }),
+    );
+  }
+
+  await db.batch(operations as [typeof operations[0], ...typeof operations]);
 
   revalidatePath("/manager/dispatch");
   revalidatePath("/field");
@@ -96,7 +120,7 @@ export async function overrideTicketSeverity(ticketId: string, severity: number)
   }
 
   const [ticket] = await db
-    .select({ departmentId: tickets.departmentId })
+    .select({ departmentId: tickets.departmentId, severity: tickets.severity })
     .from(tickets)
     .where(and(eq(tickets.id, ticketId), notInArray(tickets.status, ["RESOLVED", "COMPLETED"])));
 
@@ -123,10 +147,27 @@ export async function overrideTicketSeverity(ticketId: string, severity: number)
     }
   }
 
-  await db
-    .update(tickets)
-    .set({ severity, updatedAt: new Date() })
-    .where(eq(tickets.id, ticketId));
+  const now = new Date();
+  await db.batch([
+    db
+      .update(tickets)
+      .set({ severity, updatedAt: now })
+      .where(eq(tickets.id, ticketId)),
+    db.insert(ticketEvents).values({
+      id: `event-${crypto.randomUUID()}`,
+      ticketId,
+      eventType: "SEVERITY_OVERRIDDEN",
+      actorId: dispatcher.id,
+      fromDepartmentId: ticket.departmentId,
+      toDepartmentId: ticket.departmentId,
+      reason: `Severity adjusted from ${ticket.severity} to ${severity}`,
+      metadata: {
+        previousSeverity: ticket.severity,
+        newSeverity: severity,
+      },
+      createdAt: now,
+    }),
+  ]);
 
   revalidatePath("/manager/dispatch");
   revalidatePath("/manager/map");
