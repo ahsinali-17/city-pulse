@@ -59,12 +59,20 @@ export async function POST(req: NextRequest) {
     const prompt = `You are an expert triage AI for a smart city hazard reporting system. Analyze the attached image and return a JSON object with the following schema:
     {
       "category": string (must be exactly one of: "Water Leak", "Pothole", "Power Outage", "Traffic Signal", "Tree Branch", "Sanitation"),
-      "severity": number (1 to 5, where 5 is the most critical emergency),
+      "severity": number (integer 1 to 5 only),
       "title": string (A short, descriptive title of the issue),
       "confidence": number (0 to 100 representing your confidence in the hazard assessment),
       "explanation": string (brief evidence-based reason for the category and severity),
       "departmentId": string or null (choose exactly one department id from the available list, or null when no department is a defensible match)
     }
+
+    Severity scoring must be firm and constant. Score the visible evidence only against this rubric. The same scene must receive the same severity every time — do not drift, round-up for emphasis, or change the score because the photo is cropped differently.
+    1 — Cosmetic / low urgency: surface blemish, minor debris, or a crack that does not affect travel.
+    2 — Nuisance: passable obstruction (for example a fallen branch on a sidewalk), shallow pothole, slow seep, dim streetlight.
+    3 — Moderate operational impact: a travel lane is affected, standing water, a local-block outage, or a medium pothole.
+    4 — High hazard: deep pothole / tire-blowout risk, pressurized leak flooding a roadway, a dark intersection, or a downed limb in a driving lane.
+    5 — Immediate emergency: bursting main with rapid flooding or erosion, live wires down, a dark signal at a major intersection, collapse, or sinkhole.
+
     Match the hazard category and image evidence against each department name and responsibility description. Active and suspended departments may be selected. Archived departments are not in the available list and must never be selected. Return departmentId as null when the hazard does not match a department well enough.
     Available departments:
     ${JSON.stringify(departmentPrompt)}

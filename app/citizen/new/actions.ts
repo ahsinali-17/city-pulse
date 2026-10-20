@@ -4,9 +4,89 @@ import { db } from "@/lib/db";
 import { departments } from "@/lib/db/schema/departments";
 import { ticketEvents } from "@/lib/db/schema/ticket-events";
 import { tickets } from "@/lib/db/schema/tickets";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { findDuplicateMatch } from "@/lib/geo";
+
+/** Statuses that mean the ticket is no longer active work. */
+const TERMINAL_STATUSES = ["RESOLVED", "COMPLETED"] as const;
+
+/** Radius in metres for proximity duplicate detection. */
+const DUPLICATE_RADIUS_METERS = 100;
+
+export type DuplicateCheckResult =
+  | { isDuplicate: false }
+  | {
+      isDuplicate: true;
+      existingTicketId: string;
+      distanceMeters: number;
+      severityMatched: boolean;
+    };
+
+/**
+ * Checks whether a ticket being submitted is a near-duplicate of an
+ * already-active ticket.
+ *
+ * Requires an active coordinate pair — never classifies without a pin.
+ * Distance (Haversine, 100 m) is the required signal. Matching severity
+ * confirms the same incident; mismatched severity does not clear a nearby hit.
+ */
+export async function checkDuplicateAction(data: {
+  category: string;
+  severity?: number;
+  lat: number;
+  lng: number;
+}): Promise<DuplicateCheckResult> {
+  const category = data.category.trim();
+  if (!category || !Number.isFinite(data.lat) || !Number.isFinite(data.lng)) {
+    return { isDuplicate: false };
+  }
+
+  const candidates = await db
+    .select({
+      id: tickets.id,
+      lat: tickets.lat,
+      lng: tickets.lng,
+      severity: tickets.severity,
+    })
+    .from(tickets)
+    .where(
+      and(
+        eq(tickets.category, category),
+        notInArray(tickets.status, [...TERMINAL_STATUSES])
+      )
+    );
+
+  const match = findDuplicateMatch(
+    data.lat,
+    data.lng,
+    candidates,
+    DUPLICATE_RADIUS_METERS,
+    data.severity
+  );
+
+  if (match) {
+    return {
+      isDuplicate: true,
+      existingTicketId: match.candidate.id,
+      distanceMeters: Math.round(match.distanceMeters),
+      severityMatched: match.severityMatched,
+    };
+  }
+
+  return { isDuplicate: false };
+}
+
+export type SubmitTicketResult =
+  | { success: true; ticketId: string }
+  | {
+      success: false;
+      isDuplicate: true;
+      existingTicketId: string;
+      distanceMeters: number;
+      severityMatched: boolean;
+    };
 
 export async function submitTicketAction(data: {
   title: string;
@@ -20,10 +100,20 @@ export async function submitTicketAction(data: {
   aiConfidence: number;
   aiAnalysis: Record<string, unknown>;
   aiSuggestedDepartmentId: string | null;
-}) {
+}): Promise<SubmitTicketResult> {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
+  }
+
+  const duplicate = await checkDuplicateAction({
+    category: data.category,
+    severity: data.severity,
+    lat: data.lat,
+    lng: data.lng,
+  });
+  if (duplicate.isDuplicate) {
+    return { success: false, ...duplicate };
   }
 
   const newId = `HAZ-${Math.floor(10000 + Math.random() * 90000)}`;
