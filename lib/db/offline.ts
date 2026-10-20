@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import { type FieldTask } from "@/lib/mock-data";
+import { type FieldTask } from "@/types/field-types";
 
 export interface PendingSyncItem {
   id?: number;
