@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { CheckCircle2, HardHat, RefreshCw, WifiOff, CloudUpload } from "lucide-react";
-import { type FieldTask } from "@/lib/mock-data";
+import { type FieldTask } from "@/types/field-types";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";

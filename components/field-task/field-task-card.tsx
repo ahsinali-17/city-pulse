@@ -15,7 +15,7 @@ import {
   Wrench,
   HardHat,
 } from "lucide-react";
-import { type FieldTask } from "@/lib/mock-data";
+import { type FieldTask } from "@/types/field-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import { MapContainer, CircleMarker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { type FieldTask } from "@/lib/mock-data";
+import { type FieldTask } from "@/types/field-types";
 import { Badge } from "@/components/ui/badge";
 import { MapPin } from "lucide-react";
 import { getCachedTile, cacheTile } from "@/lib/db/offline";
