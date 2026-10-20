@@ -31,57 +31,15 @@ export function haversineDistanceMeters(
   return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(a));
 }
 
-/**
- * Returns `true` if two coordinates are within `radiusMeters` of each other.
- */
-export function isWithinRadius(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-  radiusMeters: number
-): boolean {
-  return haversineDistanceMeters(lat1, lng1, lat2, lng2) <= radiusMeters;
-}
 
 export type GeoCandidate = {
   id: string;
   lat: number;
   lng: number;
+  severity: number;
 };
 
-/**
- * Returns the nearest candidate inside `radiusMeters`, or `null` if none.
- */
-export function findClosestWithinRadius<T extends GeoCandidate>(
-  originLat: number,
-  originLng: number,
-  candidates: T[],
-  radiusMeters: number
-): { candidate: T; distanceMeters: number } | null {
-  let closest: T | null = null;
-  let closestDist = Infinity;
-
-  for (const candidate of candidates) {
-    const dist = haversineDistanceMeters(
-      originLat,
-      originLng,
-      candidate.lat,
-      candidate.lng
-    );
-    if (dist <= radiusMeters && dist < closestDist) {
-      closestDist = dist;
-      closest = candidate;
-    }
-  }
-
-  if (!closest) return null;
-  return { candidate: closest, distanceMeters: closestDist };
-}
-
-export type SeverityCandidate = GeoCandidate & { severity: number };
-
-export type DuplicateGeoMatch<T extends SeverityCandidate> = {
+export type DuplicateGeoMatch<T extends GeoCandidate> = {
   candidate: T;
   distanceMeters: number;
   /** True when the nearby ticket also shares the incoming severity. */
@@ -96,7 +54,7 @@ export type DuplicateGeoMatch<T extends SeverityCandidate> = {
  *  3. Otherwise pick the closest nearby ticket of the same category set
  *     (still a duplicate — AI severity can drift).
  */
-export function findDuplicateMatch<T extends SeverityCandidate>(
+export function findDuplicateMatch<T extends GeoCandidate>(
   originLat: number,
   originLng: number,
   candidates: T[],
@@ -135,3 +93,46 @@ export function findDuplicateMatch<T extends SeverityCandidate>(
     severityMatched: severityIsKnown && best.candidate.severity === severity,
   };
 }
+
+
+/**
+ * Returns `true` if two coordinates are within `radiusMeters` of each other.
+ */
+// export function isWithinRadius(
+//   lat1: number,
+//   lng1: number,
+//   lat2: number,
+//   lng2: number,
+//   radiusMeters: number
+// ): boolean {
+//   return haversineDistanceMeters(lat1, lng1, lat2, lng2) <= radiusMeters;
+// }
+
+/**
+ * Returns the nearest candidate inside `radiusMeters`, or `null` if none.
+ */
+// export function findClosestWithinRadius<T extends GeoCandidate>(
+//   originLat: number,
+//   originLng: number,
+//   candidates: T[],
+//   radiusMeters: number
+// ): { candidate: T; distanceMeters: number } | null {
+//   let closest: T | null = null;
+//   let closestDist = Infinity;
+
+//   for (const candidate of candidates) {
+//     const dist = haversineDistanceMeters(
+//       originLat,
+//       originLng,
+//       candidate.lat,
+//       candidate.lng
+//     );
+//     if (dist <= radiusMeters && dist < closestDist) {
+//       closestDist = dist;
+//       closest = candidate;
+//     }
+//   }
+
+//   if (!closest) return null;
+//   return { candidate: closest, distanceMeters: closestDist };
+// }
