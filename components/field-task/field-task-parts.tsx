@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle2, Package, Plus } from "lucide-react";
-import { type FieldTask } from "@/lib/mock-data";
+import { type FieldTask } from "@/types/field-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateTicketState } from "@/app/field/actions";

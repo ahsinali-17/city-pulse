@@ -16,7 +16,7 @@ import { departments } from "@/lib/db/schema/departments";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { type FieldTask } from "@/lib/mock-data";
+import { type FieldTask } from "@/types/field-types";
 
 export const dynamic = "force-dynamic";
 
